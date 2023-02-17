@@ -3,5 +3,6 @@ resolver = "2"
 members = [
     "math",
     "render_lib",
-    "render_test"
+    "render_test",
+    "macros"
 ]
