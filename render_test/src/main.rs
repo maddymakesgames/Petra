@@ -17,7 +17,7 @@ fn main() {
 
     let triangle_shader = manager.register_shader(include_str!("../shaders/triangle.wgsl"), None);
     let triangle_pipeline = manager
-        .new_pipeline(Some("triangle pipeline"))
+        .pipeline_builder(Some("triangle pipeline"))
         .vertex_shader(triangle_shader, "vs_main")
         .fragment_shader(triangle_shader, "fs_main")
         .topology(PrimitiveTopology::TriangleList)
@@ -25,7 +25,7 @@ fn main() {
         .build();
 
     let _pass = manager
-        .new_pass(Some("Main Pass"))
+        .pass_builder(Some("Main Pass"))
         .add_pipeline(triangle_pipeline)
         .add_attachment(TextureHandle::FRAMEBUFFER, Some(Color::BLACK), true)
         .build();

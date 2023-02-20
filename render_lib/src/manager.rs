@@ -114,11 +114,11 @@ impl RenderManager {
         }
     }
 
-    pub fn new_pipeline<'a>(&'a mut self, label: Label<'a>) -> RenderPipelineBuilder<'a> {
+    pub fn pipeline_builder<'a>(&'a mut self, label: Label<'a>) -> RenderPipelineBuilder<'a> {
         RenderPipelineBuilder::new(self, label)
     }
 
-    pub fn new_pass<'a>(&'a mut self, label: Label<'a>) -> RenderPassBuilder<'a> {
+    pub fn pass_builder<'a>(&'a mut self, label: Label<'a>) -> RenderPassBuilder<'a> {
         RenderPassBuilder::new(self, label)
     }
 
