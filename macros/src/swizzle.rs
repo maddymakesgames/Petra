@@ -48,13 +48,10 @@ impl ToTokens for SwizzleInput {
                 let mut indecies = (0 .. group.len()).collect::<Vec<_>>();
                 indecies = indecies.repeat(i + 2);
                 for perm in indecies.iter().permutations(i + 2).unique() {
-                    let a = perm
-                        .iter()
-                        .map(|v| group[**v].clone())
-                        .collect::<Vec<_>>();
+                    let a = perm.iter().map(|v| group[**v].clone()).collect::<Vec<_>>();
                     let func_name = a.iter().map(|v| v.to_string()).collect::<String>();
                     let func_name = format_ident!("{func_name}");
-    
+
                     functions.push(quote! {
                         #[doc(hidden)]
                         pub fn #func_name(&self) -> #to_type {

@@ -220,11 +220,11 @@ impl Mat4 {
     }
 
     pub fn forward(&self) -> Vec3 {
-        Vec3::new(-self[0][2], -self[1][2],- self[2][2]).normalize()
+        Vec3::new(-self[0][2], -self[1][2], -self[2][2]).normalize()
     }
 
     pub fn backward(&self) -> Vec3 {
-        Vec3::new(self[0][2], self[1][2],self[2][2]).normalize()
+        Vec3::new(self[0][2], self[1][2], self[2][2]).normalize()
     }
 
     pub fn up(&self) -> Vec3 {
@@ -232,12 +232,13 @@ impl Mat4 {
     }
 
     pub fn down(&self) -> Vec3 {
-        Vec3::new(-self[0][1], -self[1][1],- self[2][1]).normalize()
+        Vec3::new(-self[0][1], -self[1][1], -self[2][1]).normalize()
     }
 
     pub fn left(&self) -> Vec3 {
         Vec3::new(-self[0][0], -self[1][0], -self[2][0]).normalize()
     }
+
     pub fn right(&self) -> Vec3 {
         Vec3::new(self[0][0], self[1][0], self[2][0]).normalize()
     }
