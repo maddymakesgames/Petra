@@ -7,11 +7,9 @@ use crate::{
     texture::{TextureHandle, FRAMEBUFFER},
 };
 
-pub struct RenderPass;
+pub type RenderPassHandle = Handle<RenderPassIntenal>;
 
-pub type RenderPassHandle = Handle<RenderPass>;
-
-pub(crate) struct RenderPassIntenal {
+pub struct RenderPassIntenal {
     pub name: Option<String>,
     pub attachments: Vec<(TextureHandle, Operations<Color>)>,
     pub pipelines: Vec<PipelineHandle>,
@@ -64,14 +62,11 @@ impl<'a> RenderPassBuilder<'a> {
             }));
         }
 
-        let id = self.manager.passes.len();
 
-        self.manager.passes.push(RenderPassIntenal {
+        self.manager.passes.add(RenderPassIntenal {
             name: self.name.map(str::to_owned),
             attachments: self.attachments,
             pipelines: self.pipelines,
-        });
-
-        Handle::new(id)
+        })
     }
 }

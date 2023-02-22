@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::Read, path::Path};
+use std::{fs::OpenOptions, io::Read, path::Path, sync::Arc};
 
 pub use wgpu::SurfaceError;
 use wgpu::{
@@ -16,7 +16,6 @@ use wgpu::{
     Queue,
     RenderPassColorAttachment,
     RenderPassDescriptor,
-    RenderPipeline,
     RequestAdapterOptions,
     ShaderModuleDescriptor,
     ShaderSource,
@@ -28,9 +27,10 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
-    handle::Handle,
+    buffer::{Buffer, BufferBuilder, BufferContents},
+    handle::{Handle, Registry},
     render_pass::{RenderPassBuilder, RenderPassIntenal},
-    render_pipeline::RenderPipelineBuilder,
+    render_pipeline::{RenderPipeline, RenderPipelineBuilder},
     shader::Shader,
     texture::FRAMEBUFFER,
 };
@@ -38,13 +38,14 @@ use crate::{
 pub struct RenderManager {
     pub window: Window,
     pub(crate) surface: Surface,
-    pub(crate) device: Device,
-    pub(crate) queue: Queue,
+    pub(crate) device: Arc<Device>,
+    pub(crate) queue: Arc<Queue>,
     pub(crate) config: SurfaceConfiguration,
     pub(crate) size: PhysicalSize<u32>,
-    pub(crate) passes: Vec<RenderPassIntenal>,
-    pub(crate) pipelines: Vec<RenderPipeline>,
-    pub(crate) shaders: Vec<Shader>,
+    pub(crate) passes: Registry<RenderPassIntenal>,
+    pub(crate) pipelines: Registry<RenderPipeline>,
+    pub(crate) shaders: Registry<Shader>,
+    pub(crate) buffers: Registry<Buffer>,
 }
 
 impl RenderManager {
@@ -105,13 +106,14 @@ impl RenderManager {
         Self {
             window,
             surface,
-            device,
-            queue,
+            device: Arc::new(device),
+            queue: Arc::new(queue),
             config,
             size: window_size,
-            passes: Vec::new(),
-            pipelines: Vec::new(),
-            shaders: Vec::new(),
+            passes: Registry::new(),
+            pipelines: Registry::new(),
+            shaders: Registry::new(),
+            buffers: Registry::new(),
         }
     }
 
@@ -123,17 +125,20 @@ impl RenderManager {
         RenderPassBuilder::new(self, label)
     }
 
+    pub fn buffer_builder<'a, T: BufferContents>(
+        &'a mut self,
+        label: Label<'a>,
+    ) -> BufferBuilder<'a, T> {
+        BufferBuilder::new(self, label)
+    }
+
     pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> Handle<Shader> {
         let module = self.device.create_shader_module(ShaderModuleDescriptor {
             label,
             source: ShaderSource::Wgsl(shader.into()),
         });
 
-        let id = self.shaders.len();
-
-        self.shaders.push(Shader(module));
-
-        Handle::new(id)
+        self.shaders.add(Shader(module))
     }
 
     pub fn register_shader_file(
@@ -195,11 +200,21 @@ impl RenderManager {
             for pipeline in &pass_desc.pipelines {
                 let pipeline = self
                     .pipelines
-                    .get(pipeline.index())
+                    .get(*pipeline)
                     .expect("Invalid RenderPipelineHandle in a render pass");
-                pass.set_pipeline(pipeline);
-                // TODO:
-                // Add Vertex buffers, Uniform buffers, ect. to the pass before drawing
+                pass.set_pipeline(&pipeline.pipeline);
+
+                for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
+                    pass.set_vertex_buffer(
+                        i as u32,
+                        self.buffers
+                            .get(*vertex_buffer)
+                            .expect("Invalid BufferHandle in a render pipeline")
+                            .inner()
+                            .slice(..),
+                    )
+                }
+
                 pass.draw(0 .. 3, 0 .. 1);
             }
         }

@@ -5,15 +5,20 @@ use wgpu::{
     MultisampleState,
     PipelineLayoutDescriptor,
     PrimitiveState,
+    RenderPipeline as RawRenderPipeline,
     RenderPipelineDescriptor,
     VertexState,
 };
 
-use crate::{handle::Handle, manager::RenderManager, shader::Shader};
+use crate::{buffer::Buffer, handle::Handle, manager::RenderManager, shader::Shader};
 
 pub type PipelineHandle = Handle<RenderPipeline>;
 
-pub struct RenderPipeline;
+pub struct RenderPipeline {
+    pub(crate) pipeline: RawRenderPipeline,
+    pub(crate) vertex_buffers: Vec<Handle<Buffer>>,
+    pub(crate) _uniform_buffers: Vec<Handle<Buffer>>,
+}
 
 pub struct RenderPipelineBuilder<'a> {
     manager: &'a mut RenderManager,
@@ -24,6 +29,7 @@ pub struct RenderPipelineBuilder<'a> {
     front_face: Option<FrontFace>,
     culling: Option<Face>,
     polygon_mode: PolygonMode,
+    vertex_buffers: Vec<Handle<Buffer>>,
 }
 
 impl<'a> RenderPipelineBuilder<'a> {
@@ -37,6 +43,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             front_face: None,
             culling: None,
             polygon_mode: PolygonMode::Fill,
+            vertex_buffers: Vec::new(),
         }
     }
 
@@ -65,6 +72,11 @@ impl<'a> RenderPipelineBuilder<'a> {
         self
     }
 
+    pub fn add_vertex_buffer(mut self, buffer: Handle<Buffer>) -> Self {
+        self.vertex_buffers.push(buffer);
+        self
+    }
+
     pub fn build(self) -> PipelineHandle {
         let pipeline_layout =
             self.manager
@@ -84,7 +96,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             let module = &self
                 .manager
                 .shaders
-                .get(handle.index())
+                .get(handle)
                 .expect("Invalid Shader Handle passed as a fragment shader")
                 .0;
 
@@ -100,9 +112,28 @@ impl<'a> RenderPipelineBuilder<'a> {
         let vert_shader = &self
             .manager
             .shaders
-            .get(vert_shader.index())
+            .get(vert_shader)
             .expect("Invalid Shader Handle passed as a vertex shader")
             .0;
+
+        let mut vertex_buffers = Vec::with_capacity(self.vertex_buffers.len());
+
+        for handle in &self.vertex_buffers {
+            let buffer = self
+                .manager
+                .buffers
+                .get(*handle)
+                .expect("Invalid Buffer Handle passed as a vertex buffer");
+
+            vertex_buffers.push(buffer.vertex_format().unwrap_or_else(|| {
+                panic!(
+                    "Attempted to attach buffer {:?} to pipeline {:?} as a vertex buffer, but the \
+                     buffer cannot be used as a vertex buffer",
+                    buffer.name(),
+                    self.name
+                )
+            }));
+        }
 
         let pipeline = self
             .manager
@@ -113,7 +144,7 @@ impl<'a> RenderPipelineBuilder<'a> {
                 vertex: VertexState {
                     module: vert_shader,
                     entry_point: vert_entry_point,
-                    buffers: &[],
+                    buffers: &vertex_buffers,
                 },
                 primitive: PrimitiveState {
                     topology: self
@@ -134,9 +165,12 @@ impl<'a> RenderPipelineBuilder<'a> {
                 multiview: None,
             });
 
-        let pipeline_id = self.manager.pipelines.len();
-        self.manager.pipelines.push(pipeline);
+        let pipeline = RenderPipeline {
+            pipeline,
+            vertex_buffers: self.vertex_buffers,
+            _uniform_buffers: Vec::new(),
+        };
 
-        Handle::new(pipeline_id)
+        self.manager.pipelines.add(pipeline)
     }
 }

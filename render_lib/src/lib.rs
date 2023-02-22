@@ -5,5 +5,7 @@ pub mod render_pass;
 pub mod render_pipeline;
 pub mod shader;
 pub mod texture;
+pub mod vertex;
 
+pub use macros::Vertex;
 pub use wgpu::Color;
