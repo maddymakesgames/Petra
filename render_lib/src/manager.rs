@@ -27,11 +27,11 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
-    buffer::{Buffer, BufferBuilder, BufferContents},
-    handle::{Handle, Registry},
+    buffer::{Buffer, BufferBuilder, BufferContents, BufferHandle},
+    handle::Registry,
     render_pass::{RenderPassBuilder, RenderPassIntenal},
     render_pipeline::{RenderPipeline, RenderPipelineBuilder},
-    shader::Shader,
+    shader::{Shader, ShaderHandle},
     texture::FRAMEBUFFER,
 };
 
@@ -132,7 +132,16 @@ impl RenderManager {
         BufferBuilder::new(self, label)
     }
 
-    pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> Handle<Shader> {
+    pub fn write_to_buffer<T: BufferContents>(&mut self, buffer: BufferHandle, data: &[T]) {
+        let buffer = self
+            .buffers
+            .get_mut(buffer)
+            .expect("Invalid buffer handle passed to write_to_buffer");
+
+        buffer.write_data(data)
+    }
+
+    pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> ShaderHandle {
         let module = self.device.create_shader_module(ShaderModuleDescriptor {
             label,
             source: ShaderSource::Wgsl(shader.into()),
@@ -145,7 +154,7 @@ impl RenderManager {
         &mut self,
         shader: impl AsRef<Path>,
         label: Label<'_>,
-    ) -> std::io::Result<Handle<Shader>> {
+    ) -> std::io::Result<ShaderHandle> {
         let mut file = OpenOptions::new().read(true).open(shader)?;
         let mut buf = String::with_capacity(file.metadata().map(|m| m.len() as usize).unwrap_or(0));
         file.read_to_string(&mut buf)?;
