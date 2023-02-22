@@ -1,3 +1,4 @@
+pub use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 use wgpu::{
     FragmentState,
     Label,
@@ -8,18 +9,17 @@ use wgpu::{
     VertexState,
 };
 
-use crate::{manager::RenderManager, shader::ShaderHandle};
+use crate::{handle::Handle, manager::RenderManager, shader::Shader};
 
-pub use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
+pub type PipelineHandle = Handle<RenderPipeline>;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct RenderPipelineHandle(pub(crate) usize);
+pub struct RenderPipeline;
 
 pub struct RenderPipelineBuilder<'a> {
     manager: &'a mut RenderManager,
     name: Label<'a>,
-    vertex_shader: Option<(&'a str, ShaderHandle)>,
-    fragment_shader: Option<(&'a str, ShaderHandle)>,
+    vertex_shader: Option<(&'a str, Handle<Shader>)>,
+    fragment_shader: Option<(&'a str, Handle<Shader>)>,
     topology: Option<PrimitiveTopology>,
     front_face: Option<FrontFace>,
     culling: Option<Face>,
@@ -40,12 +40,12 @@ impl<'a> RenderPipelineBuilder<'a> {
         }
     }
 
-    pub fn vertex_shader(mut self, shader: ShaderHandle, entry_point: &'a str) -> Self {
+    pub fn vertex_shader(mut self, shader: Handle<Shader>, entry_point: &'a str) -> Self {
         self.vertex_shader = Some((entry_point, shader));
         self
     }
 
-    pub fn fragment_shader(mut self, shader: ShaderHandle, entry_point: &'a str) -> Self {
+    pub fn fragment_shader(mut self, shader: Handle<Shader>, entry_point: &'a str) -> Self {
         self.fragment_shader = Some((entry_point, shader));
         self
     }
@@ -65,7 +65,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> RenderPipelineHandle {
+    pub fn build(self) -> PipelineHandle {
         let pipeline_layout =
             self.manager
                 .device
@@ -84,8 +84,8 @@ impl<'a> RenderPipelineBuilder<'a> {
             let module = &self
                 .manager
                 .shaders
-                .get(handle.0)
-                .expect("Invalid ShaderHandle passed as a fragment shader")
+                .get(handle.index())
+                .expect("Invalid Shader Handle passed as a fragment shader")
                 .0;
 
             Some(FragmentState {
@@ -100,8 +100,8 @@ impl<'a> RenderPipelineBuilder<'a> {
         let vert_shader = &self
             .manager
             .shaders
-            .get(vert_shader.0)
-            .expect("Invalid ShaderHandle passed as a vertex shader")
+            .get(vert_shader.index())
+            .expect("Invalid Shader Handle passed as a vertex shader")
             .0;
 
         let pipeline = self
@@ -137,6 +137,6 @@ impl<'a> RenderPipelineBuilder<'a> {
         let pipeline_id = self.manager.pipelines.len();
         self.manager.pipelines.push(pipeline);
 
-        RenderPipelineHandle(pipeline_id)
+        Handle::new(pipeline_id)
     }
 }

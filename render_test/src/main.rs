@@ -1,7 +1,7 @@
 use render_lib::{
     manager::{RenderManager, SurfaceError},
     render_pipeline::{FrontFace, PrimitiveTopology},
-    texture::TextureHandle,
+    texture::FRAMEBUFFER,
     Color,
 };
 use winit::{
@@ -27,7 +27,7 @@ fn main() {
     let _pass = manager
         .pass_builder(Some("Main Pass"))
         .add_pipeline(triangle_pipeline)
-        .add_attachment(TextureHandle::FRAMEBUFFER, Some(Color::BLACK), true)
+        .add_attachment(FRAMEBUFFER, Some(Color::BLACK), true)
         .build();
 
     event_loop.run(move |event, _, control_flow| match event {

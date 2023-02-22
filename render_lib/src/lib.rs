@@ -1,3 +1,5 @@
+pub mod buffer;
+pub mod handle;
 pub mod manager;
 pub mod render_pass;
 pub mod render_pipeline;

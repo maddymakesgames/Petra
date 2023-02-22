@@ -1,8 +1,6 @@
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TextureHandle {
-    id: usize,
-}
+use crate::handle::Handle;
 
-impl TextureHandle {
-    pub const FRAMEBUFFER: TextureHandle = TextureHandle { id: 0 };
-}
+pub type TextureHandle = Handle<Texture>;
+pub const FRAMEBUFFER: TextureHandle = Handle::new(0);
+
+pub struct Texture {}

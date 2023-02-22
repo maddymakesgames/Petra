@@ -28,10 +28,11 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
+    handle::Handle,
     render_pass::{RenderPassBuilder, RenderPassIntenal},
     render_pipeline::RenderPipelineBuilder,
-    shader::{Shader, ShaderHandle},
-    texture::TextureHandle,
+    shader::Shader,
+    texture::FRAMEBUFFER,
 };
 
 pub struct RenderManager {
@@ -122,7 +123,7 @@ impl RenderManager {
         RenderPassBuilder::new(self, label)
     }
 
-    pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> ShaderHandle {
+    pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> Handle<Shader> {
         let module = self.device.create_shader_module(ShaderModuleDescriptor {
             label,
             source: ShaderSource::Wgsl(shader.into()),
@@ -132,14 +133,14 @@ impl RenderManager {
 
         self.shaders.push(Shader(module));
 
-        ShaderHandle(id)
+        Handle::new(id)
     }
 
     pub fn register_shader_file(
         &mut self,
         shader: impl AsRef<Path>,
         label: Label<'_>,
-    ) -> std::io::Result<ShaderHandle> {
+    ) -> std::io::Result<Handle<Shader>> {
         let mut file = OpenOptions::new().read(true).open(shader)?;
         let mut buf = String::with_capacity(file.metadata().map(|m| m.len() as usize).unwrap_or(0));
         file.read_to_string(&mut buf)?;
@@ -176,7 +177,7 @@ impl RenderManager {
                     .attachments
                     .iter()
                     .map(|(t, op)| {
-                        let view = if *t == TextureHandle::FRAMEBUFFER {
+                        let view = if *t == FRAMEBUFFER {
                             &surface_view
                         } else {
                             unimplemented!("Can't load arbitrary textures yet")
@@ -194,7 +195,7 @@ impl RenderManager {
             for pipeline in &pass_desc.pipelines {
                 let pipeline = self
                     .pipelines
-                    .get(pipeline.0)
+                    .get(pipeline.index())
                     .expect("Invalid RenderPipelineHandle in a render pass");
                 pass.set_pipeline(pipeline);
                 // TODO:

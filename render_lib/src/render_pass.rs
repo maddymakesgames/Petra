@@ -1,25 +1,27 @@
 use wgpu::{Color, Label, LoadOp, Operations};
 
 use crate::{
+    handle::Handle,
     manager::RenderManager,
-    render_pipeline::RenderPipelineHandle,
-    texture::TextureHandle,
+    render_pipeline::PipelineHandle,
+    texture::{TextureHandle, FRAMEBUFFER},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct RenderPassHandle(pub(crate) usize);
+pub struct RenderPass;
+
+pub type RenderPassHandle = Handle<RenderPass>;
 
 pub(crate) struct RenderPassIntenal {
     pub name: Option<String>,
     pub attachments: Vec<(TextureHandle, Operations<Color>)>,
-    pub pipelines: Vec<RenderPipelineHandle>,
+    pub pipelines: Vec<PipelineHandle>,
 }
 
 pub struct RenderPassBuilder<'a> {
     manager: &'a mut RenderManager,
     attachments: Vec<(TextureHandle, Operations<Color>)>,
     name: Label<'a>,
-    pipelines: Vec<RenderPipelineHandle>,
+    pipelines: Vec<PipelineHandle>,
 }
 
 impl<'a> RenderPassBuilder<'a> {
@@ -49,18 +51,17 @@ impl<'a> RenderPassBuilder<'a> {
         self
     }
 
-    pub fn add_pipeline(mut self, pipeline: RenderPipelineHandle) -> RenderPassBuilder<'a> {
+    pub fn add_pipeline(mut self, pipeline: PipelineHandle) -> RenderPassBuilder<'a> {
         self.pipelines.push(pipeline);
         self
     }
 
     pub fn build(mut self) -> RenderPassHandle {
         if self.attachments.is_empty() {
-            self.attachments
-                .push((TextureHandle::FRAMEBUFFER, Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }));
+            self.attachments.push((FRAMEBUFFER, Operations {
+                load: LoadOp::Load,
+                store: true,
+            }));
         }
 
         let id = self.manager.passes.len();
@@ -71,6 +72,6 @@ impl<'a> RenderPassBuilder<'a> {
             pipelines: self.pipelines,
         });
 
-        RenderPassHandle(id)
+        Handle::new(id)
     }
 }

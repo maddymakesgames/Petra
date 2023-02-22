@@ -1,6 +1,7 @@
 use wgpu::ShaderModule;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ShaderHandle(pub(crate) usize);
+use crate::handle::Handle;
+
+pub type ShaderHandle = Handle<Shader>;
 
 pub struct Shader(pub(crate) ShaderModule);
