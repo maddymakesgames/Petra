@@ -1005,6 +1005,8 @@ dependencies = [
 name = "render_lib"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "macros",
  "pollster",
  "wgpu",
  "winit",
@@ -1014,6 +1016,7 @@ dependencies = [
 name = "render_test"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "math",
  "pollster",
  "render_lib",

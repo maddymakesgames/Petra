@@ -10,3 +10,4 @@ render_lib = { path = "../render_lib" }
 math = { path = "../math" }
 winit = "0.28"
 pollster = "0.3"
+bytemuck = { path = "1.13", features = ["derive"] }
