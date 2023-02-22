@@ -18,6 +18,10 @@ impl<T> Registry<T> {
     pub fn get(&self, handle: Handle<T>) -> Option<&T> {
         self.data.get(handle.0)
     }
+
+    pub(crate) fn get_mut(&mut self, handle: Handle<T>) -> Option<&mut T> {
+        self.data.get_mut(handle.0)
+    }
 }
 
 impl<T> Default for Registry<T> {
@@ -32,6 +36,15 @@ impl<'a, T> IntoIterator for &'a Registry<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Registry<T> {
+    type IntoIter = std::slice::IterMut<'a, T>;
+    type Item = &'a mut T;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.iter_mut()
     }
 }
 

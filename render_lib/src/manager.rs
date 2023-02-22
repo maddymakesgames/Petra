@@ -32,7 +32,7 @@ use crate::{
     render_pass::{RenderPassBuilder, RenderPassIntenal},
     render_pipeline::{RenderPipeline, RenderPipelineBuilder},
     shader::{Shader, ShaderHandle},
-    texture::FRAMEBUFFER,
+    texture::{Texture, TextureBuilder, TextureContents, FRAMEBUFFER},
 };
 
 pub struct RenderManager {
@@ -46,6 +46,7 @@ pub struct RenderManager {
     pub(crate) pipelines: Registry<RenderPipeline>,
     pub(crate) shaders: Registry<Shader>,
     pub(crate) buffers: Registry<Buffer>,
+    pub(crate) textures: Registry<Texture>,
 }
 
 impl RenderManager {
@@ -114,6 +115,7 @@ impl RenderManager {
             pipelines: Registry::new(),
             shaders: Registry::new(),
             buffers: Registry::new(),
+            textures: Registry::new(),
         }
     }
 
@@ -130,6 +132,13 @@ impl RenderManager {
         label: Label<'a>,
     ) -> BufferBuilder<'a, T> {
         BufferBuilder::new(self, label)
+    }
+
+    pub fn texture_builder<'a, T: TextureContents>(
+        &'a mut self,
+        label: Label<'a>,
+    ) -> TextureBuilder<'a, T> {
+        TextureBuilder::new(self, label)
     }
 
     pub fn write_to_buffer<T: BufferContents>(&mut self, buffer: BufferHandle, data: &[T]) {
@@ -166,6 +175,10 @@ impl RenderManager {
         self.config.width = size.width;
         self.config.height = size.height;
         self.surface.configure(&self.device, &self.config);
+
+        for texture in &mut self.textures {
+            texture.on_resize(&self.config)
+        }
     }
 
     pub fn recreate(&mut self) {
