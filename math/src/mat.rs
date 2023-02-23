@@ -3,9 +3,12 @@ use std::{
     ops::{Index, IndexMut, Mul},
 };
 
+use bytemuck::{Zeroable, Pod};
+
 use crate::{Vec3, Vec4};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[repr(transparent)]
 pub struct Mat4([[f32; 4]; 4]);
 
 impl Default for Mat4 {

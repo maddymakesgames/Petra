@@ -1,8 +1,11 @@
 use std::ops::{Deref, DerefMut, Mul};
 
+use bytemuck::{Pod, Zeroable};
+
 use crate::{Mat4, Vec3, Vec4};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[repr(transparent)]
 pub struct Quat(Vec4);
 
 impl Quat {

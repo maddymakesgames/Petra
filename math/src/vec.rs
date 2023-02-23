@@ -1,5 +1,6 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
+use bytemuck::{Pod, Zeroable};
 use macros::swizzles;
 use paste::paste;
 
@@ -14,7 +15,8 @@ macro_rules! vector {
         )*
     };
     (struct $name: ident, [$($field: ident),*]) => {
-        #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+        #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+        #[repr(C)]
         pub struct $name {
             $($field: f32),*
         }

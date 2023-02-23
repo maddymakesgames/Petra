@@ -9,3 +9,5 @@ edition = "2021"
 macros = {path = "../macros"}
 
 paste = "1"
+
+bytemuck = {version = "1.13", features = ["derive"]}
