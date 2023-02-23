@@ -8,10 +8,22 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
 };
 
+
+struct RoationUniform {
+    rotation: vec4<f32>,
+};
+
+@group(0)
+@binding(0)
+var<uniform> rotation: RoationUniform;
+
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.pos = vec4(input.pos, 1.0, 1.0);
+    let v = vec3(input.pos, 1.0);
+    let q = rotation.rotation;
+    let tmp = cross(q.xyz, v) + q.w * v;
+    out.pos = vec4(v + 2.0 * cross(q.xyz, tmp), 1.0);
     out.color = input.color;
     return out;
 }
