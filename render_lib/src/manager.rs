@@ -27,8 +27,9 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
+    bind_group::{BindGroup, BindGroupBuilder},
     buffer::{Buffer, BufferBuilder, BufferContents, BufferHandle},
-    handle::Registry,
+    handle::{Handle, Registry},
     render_pass::{RenderPassBuilder, RenderPassIntenal},
     render_pipeline::{RenderPipeline, RenderPipelineBuilder},
     shader::{Shader, ShaderHandle},
@@ -47,6 +48,7 @@ pub struct RenderManager {
     pub(crate) shaders: Registry<Shader>,
     pub(crate) buffers: Registry<Buffer>,
     pub(crate) textures: Registry<Texture>,
+    pub(crate) bind_groups: Registry<BindGroup>,
 }
 
 impl RenderManager {
@@ -116,6 +118,7 @@ impl RenderManager {
             shaders: Registry::new(),
             buffers: Registry::new(),
             textures: Registry::new(),
+            bind_groups: Registry::new(),
         }
     }
 
@@ -139,6 +142,10 @@ impl RenderManager {
         label: Label<'a>,
     ) -> TextureBuilder<'a, T> {
         TextureBuilder::new(self, label)
+    }
+
+    pub fn bind_group_builder<'a>(&'a mut self, label: Label<'a>) -> BindGroupBuilder<'a> {
+        BindGroupBuilder::new(self, label)
     }
 
     pub fn write_to_buffer<T: BufferContents>(&mut self, buffer: BufferHandle, data: &[T]) {
@@ -176,8 +183,20 @@ impl RenderManager {
         self.config.height = size.height;
         self.surface.configure(&self.device, &self.config);
 
-        for texture in &mut self.textures {
-            texture.on_resize(&self.config)
+        let mut updated_textures = Vec::new();
+
+        for (i, texture) in (&mut self.textures).into_iter().enumerate() {
+            if texture.on_resize(&self.config) {
+                updated_textures.push(i);
+            }
+        }
+        for texture in updated_textures {
+            for group in (&mut self.bind_groups)
+                .into_iter()
+                .filter(|g| g.depends_texture(Handle::new(texture)))
+            {
+                group.recreate(&self.device, &self.buffers, &self.textures)
+            }
         }
     }
 
@@ -235,6 +254,17 @@ impl RenderManager {
                             .inner()
                             .slice(..),
                     )
+                }
+
+                for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
+                    pass.set_bind_group(
+                        i as u32,
+                        self.bind_groups
+                            .get(*bind_group)
+                            .expect("Invalid BindGroupHandle in a render pipeline")
+                            .inner(),
+                        &[],
+                    );
                 }
 
                 pass.draw(0 .. 3, 0 .. 1);

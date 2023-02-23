@@ -13,6 +13,8 @@ use wgpu::{
     TextureDimension,
     TextureFormat,
     TextureUsages,
+    TextureView,
+    TextureViewDescriptor,
 };
 
 use crate::{handle::Handle, manager::RenderManager};
@@ -32,22 +34,31 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub(crate) fn on_resize(&mut self, config: &SurfaceConfiguration) {
+    pub(crate) fn on_resize(&mut self, config: &SurfaceConfiguration) -> bool {
         if let TextureSize::Surface | TextureSize::ScaledSurface(..) = self.size {
-            self.recreate(self.size.get_size(config))
+            self.recreate(self.size.get_size(config));
+            true
+        } else {
+            false
         }
     }
 
-    pub fn resize_1d(&mut self, width: u32) {
-        self.resize(TextureSize::D1(width))
+    pub fn resize_1d(&mut self, width: u32, config: &SurfaceConfiguration) {
+        self.resize(TextureSize::D1(width), config)
     }
 
-    pub fn resize_2d(&mut self, width: u32, height: u32) {
-        self.resize(TextureSize::D2(width, height))
+    pub fn resize_2d(&mut self, width: u32, height: u32, config: &SurfaceConfiguration) {
+        self.resize(TextureSize::D2(width, height), config)
     }
 
-    pub fn resize_3d(&mut self, width: u32, height: u32, depth_or_array_len: u32) {
-        self.resize(TextureSize::D3(width, height, depth_or_array_len))
+    pub fn resize_3d(
+        &mut self,
+        width: u32,
+        height: u32,
+        depth_or_array_len: u32,
+        config: &SurfaceConfiguration,
+    ) {
+        self.resize(TextureSize::D3(width, height, depth_or_array_len), config)
     }
 
     pub fn write_data<T: TextureContents>(
@@ -77,7 +88,7 @@ impl Texture {
         );
     }
 
-    fn resize(&mut self, size: TextureSize) {
+    fn resize(&mut self, size: TextureSize, config: &SurfaceConfiguration) {
         if let TextureSize::Surface | TextureSize::ScaledSurface(..) = size {
             panic!("Texture size can only be set to be relative to the surface size at creation");
         } else {
@@ -85,8 +96,12 @@ impl Texture {
                 (TextureSize::D1(_), TextureSize::D1(x)) => TextureSize::D1(x),
                 (TextureSize::D2(..), TextureSize::D2(x, y)) => TextureSize::D2(x, y),
                 (TextureSize::D3(..), TextureSize::D3(x, y, z)) => TextureSize::D3(x, y, z),
-                _ => panic!("Tried to resize a texture to be a different dimension"),
-            }
+                _ => panic!(
+                    "Tried to resize a texture to be a different dimension that it was declared as"
+                ),
+            };
+
+            self.recreate(self.size.get_size(config));
         }
     }
 
@@ -108,6 +123,16 @@ impl Texture {
         );
 
         old_texture.destroy();
+    }
+
+    pub(crate) fn format(&self) -> TextureFormat {
+        self.texture.format()
+    }
+
+    pub(crate) fn get_view(&self) -> TextureView {
+        // I really don't know if using anything but the defaults has any use
+        // I really don't want to make this configurable
+        self.texture.create_view(&TextureViewDescriptor::default())
     }
 }
 pub struct TextureBuilder<'a, T: TextureContents> {

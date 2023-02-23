@@ -1,3 +1,4 @@
+pub mod bind_group;
 pub mod buffer;
 pub mod handle;
 pub mod manager;
@@ -8,4 +9,4 @@ pub mod texture;
 pub mod vertex;
 
 pub use macros::Vertex;
-pub use wgpu::Color;
+pub use wgpu;

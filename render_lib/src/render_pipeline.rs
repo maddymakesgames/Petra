@@ -10,26 +10,33 @@ use wgpu::{
     VertexState,
 };
 
-use crate::{buffer::Buffer, handle::Handle, manager::RenderManager, shader::Shader};
+use crate::{
+    bind_group::BindGroupHandle,
+    buffer::BufferHandle,
+    handle::Handle,
+    manager::RenderManager,
+    shader::ShaderHandle,
+};
 
 pub type PipelineHandle = Handle<RenderPipeline>;
 
 pub struct RenderPipeline {
     pub(crate) pipeline: RawRenderPipeline,
-    pub(crate) vertex_buffers: Vec<Handle<Buffer>>,
-    pub(crate) _uniform_buffers: Vec<Handle<Buffer>>,
+    pub(crate) vertex_buffers: Vec<BufferHandle>,
+    pub(crate) bind_groups: Vec<BindGroupHandle>,
 }
 
 pub struct RenderPipelineBuilder<'a> {
     manager: &'a mut RenderManager,
     name: Label<'a>,
-    vertex_shader: Option<(&'a str, Handle<Shader>)>,
-    fragment_shader: Option<(&'a str, Handle<Shader>)>,
+    vertex_shader: Option<(&'a str, ShaderHandle)>,
+    fragment_shader: Option<(&'a str, ShaderHandle)>,
     topology: Option<PrimitiveTopology>,
     front_face: Option<FrontFace>,
     culling: Option<Face>,
     polygon_mode: PolygonMode,
-    vertex_buffers: Vec<Handle<Buffer>>,
+    vertex_buffers: Vec<BufferHandle>,
+    bind_groups: Vec<BindGroupHandle>,
 }
 
 impl<'a> RenderPipelineBuilder<'a> {
@@ -44,15 +51,16 @@ impl<'a> RenderPipelineBuilder<'a> {
             culling: None,
             polygon_mode: PolygonMode::Fill,
             vertex_buffers: Vec::new(),
+            bind_groups: Vec::new(),
         }
     }
 
-    pub fn vertex_shader(mut self, shader: Handle<Shader>, entry_point: &'a str) -> Self {
+    pub fn vertex_shader(mut self, shader: ShaderHandle, entry_point: &'a str) -> Self {
         self.vertex_shader = Some((entry_point, shader));
         self
     }
 
-    pub fn fragment_shader(mut self, shader: Handle<Shader>, entry_point: &'a str) -> Self {
+    pub fn fragment_shader(mut self, shader: ShaderHandle, entry_point: &'a str) -> Self {
         self.fragment_shader = Some((entry_point, shader));
         self
     }
@@ -72,18 +80,34 @@ impl<'a> RenderPipelineBuilder<'a> {
         self
     }
 
-    pub fn add_vertex_buffer(mut self, buffer: Handle<Buffer>) -> Self {
+    pub fn add_vertex_buffer(mut self, buffer: BufferHandle) -> Self {
         self.vertex_buffers.push(buffer);
         self
     }
 
+    pub fn add_bind_group(mut self, bind_group: BindGroupHandle) -> Self {
+        self.bind_groups.push(bind_group);
+        self
+    }
+
     pub fn build(self) -> PipelineHandle {
+        let mut bind_group_layouts = Vec::with_capacity(self.bind_groups.len());
+
+        for group in &self.bind_groups {
+            let group = self
+                .manager
+                .bind_groups
+                .get(*group)
+                .expect("Invalid BindGroupHandle passed to RenderPipelineBuilder");
+            bind_group_layouts.push(group.layout());
+        }
+
         let pipeline_layout =
             self.manager
                 .device
                 .create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: self.name,
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &bind_group_layouts,
                     push_constant_ranges: &[],
                 });
 
@@ -168,7 +192,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         let pipeline = RenderPipeline {
             pipeline,
             vertex_buffers: self.vertex_buffers,
-            _uniform_buffers: Vec::new(),
+            bind_groups: self.bind_groups,
         };
 
         self.manager.pipelines.add(pipeline)
