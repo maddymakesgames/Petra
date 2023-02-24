@@ -109,8 +109,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         for group in &self.bind_groups {
             let group = self
                 .manager
-                .bind_groups
-                .get(*group)
+                .get_bind_group(*group)
                 .expect("Invalid BindGroupHandle passed to RenderPipelineBuilder");
             bind_group_layouts.push(group.layout());
         }
@@ -132,8 +131,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         let fragment_state = if let Some((entry_point, handle)) = self.fragment_shader {
             let module = &self
                 .manager
-                .shaders
-                .get(handle)
+                .get_shader(handle)
                 .expect("Invalid Shader Handle passed as a fragment shader")
                 .0;
 
@@ -148,8 +146,7 @@ impl<'a> RenderPipelineBuilder<'a> {
 
         let vert_shader = &self
             .manager
-            .shaders
-            .get(vert_shader)
+            .get_shader(vert_shader)
             .expect("Invalid Shader Handle passed as a vertex shader")
             .0;
 
@@ -158,8 +155,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         for handle in &self.vertex_buffers {
             let buffer = self
                 .manager
-                .buffers
-                .get(*handle)
+                .get_buffer(*handle)
                 .expect("Invalid Buffer Handle passed as a vertex buffer");
 
             vertex_buffers.push(buffer.vertex_format().unwrap_or_else(|| {
@@ -209,6 +205,6 @@ impl<'a> RenderPipelineBuilder<'a> {
             bind_groups: self.bind_groups,
         };
 
-        self.manager.pipelines.add(pipeline)
+        self.manager.add_pipeline(pipeline)
     }
 }

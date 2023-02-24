@@ -52,8 +52,7 @@ impl BindGroup {
 
         for (binding, buffer) in &buffers {
             let buffer = manager
-                .buffers
-                .get(*buffer)
+                .get_buffer(*buffer)
                 .expect("Invalid BufferHandle passed to BindGroupBuilder");
 
             entries.push(BindGroupEntry {
@@ -64,8 +63,7 @@ impl BindGroup {
 
         for (binding, texture) in &textures {
             let texture = manager
-                .textures
-                .get(*texture)
+                .get_texture(*texture)
                 .expect("Invalid TextureHandle passed to BindGroupBuilder");
 
             let view = texture.get_view();
@@ -82,8 +80,7 @@ impl BindGroup {
 
         for (binding, sampler) in &samplers {
             let sampler = manager
-                .samplers
-                .get(*sampler)
+                .get_sampler(*sampler)
                 .expect("Invalid TextureSamplerHandle passed to BindGroupBuilder")
                 .inner();
             entries.push(BindGroupEntry {
@@ -296,8 +293,7 @@ impl<'a> BindGroupBuilder<'a> {
     ) -> Self {
         let format = self
             .manager
-            .textures
-            .get(texture)
+            .get_texture(texture)
             .expect("Invalid texture handle passed to bind_storage_texture")
             .format();
 
@@ -350,6 +346,6 @@ impl<'a> BindGroupBuilder<'a> {
             self.samplers,
             self.manager,
         );
-        self.manager.bind_groups.add(group)
+        self.manager.add_bind_group(group)
     }
 }

@@ -129,7 +129,7 @@ impl<'a> TextureSamplerBuilder<'a> {
     }
 
     pub fn build(self) -> TextureSampleHandle {
-        self.manager.samplers.add(TextureSampler {
+        self.manager.add_sampler(TextureSampler {
             sampler: self.manager.device.create_sampler(&SamplerDescriptor {
                 label: self.name,
                 address_mode_u: self.address_mode_u,

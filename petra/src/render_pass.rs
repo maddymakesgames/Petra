@@ -69,7 +69,7 @@ impl<'a> RenderPassBuilder<'a> {
         }
 
 
-        self.manager.passes.add(RenderPass {
+        self.manager.add_pass(RenderPass {
             name: self.name.map(str::to_owned),
             attachments: self.attachments,
             pipelines: self.pipelines,

@@ -192,7 +192,7 @@ impl<'a, T: BufferContents> BufferBuilder<'a, T> {
             self.vertex_format,
         );
 
-        self.manager.buffers.add(buffer)
+        self.manager.add_buffer(buffer)
     }
 
     pub fn build_init(self, init_data: Vec<T>) -> BufferHandle {
@@ -204,7 +204,7 @@ impl<'a, T: BufferContents> BufferBuilder<'a, T> {
             self.vertex_format,
         );
 
-        self.manager.buffers.add(buffer)
+        self.manager.add_buffer(buffer)
     }
 }
 

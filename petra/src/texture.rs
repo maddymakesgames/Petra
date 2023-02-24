@@ -201,7 +201,7 @@ impl<'a, T: TextureContents> TextureBuilder<'a, T> {
             view_formats: &[],
         });
 
-        self.manager.textures.add(Texture {
+        self.manager.add_texture(Texture {
             name: self.label.map(|s| s.to_owned()),
             texture,
             device: self.manager.device.clone(),

@@ -45,17 +45,40 @@ pub struct RenderManager {
     pub(crate) queue: Arc<Queue>,
     pub(crate) config: SurfaceConfiguration,
     pub(crate) size: PhysicalSize<u32>,
-    pub(crate) passes: Registry<RenderPass>,
-    pub(crate) pipelines: Registry<RenderPipeline>,
-    pub(crate) shaders: Registry<Shader>,
-    pub(crate) buffers: Registry<Buffer>,
-    pub(crate) textures: Registry<Texture>,
-    pub(crate) bind_groups: Registry<BindGroup>,
-    pub(crate) samplers: Registry<TextureSampler>,
+    passes: Registry<RenderPass>,
+    pipelines: Registry<RenderPipeline>,
+    shaders: Registry<Shader>,
+    buffers: Registry<Buffer>,
+    textures: Registry<Texture>,
+    bind_groups: Registry<BindGroup>,
+    samplers: Registry<TextureSampler>,
     ordered_passes: Vec<RenderPassHandle>,
 }
 
+macro_rules! add_resource_methods {
+    ($($adder: ident, $getter: ident, $field: ident, $type: ty),*) => {
+        $(
+            pub fn $adder(&mut self, resource: $type) -> Handle<$type> {
+                self.$field.add(resource)
+            }
+
+            #[allow(unused)]
+            pub(crate) fn $getter(&self, handle: Handle<$type>) -> Option<&$type> {
+                self.$field.get(handle)
+            }
+        )*
+    };
+}
 impl RenderManager {
+    add_resource_methods! {
+        add_pass, get_pass, passes, RenderPass,
+        add_pipeline, get_pipeline, pipelines, RenderPipeline,
+        add_buffer, get_buffer, buffers, Buffer,
+        add_texture, get_texture, textures, Texture,
+        add_sampler, get_sampler, samplers, TextureSampler,
+        add_bind_group, get_bind_group, bind_groups, BindGroup
+    }
+
     pub async fn new(window: Window) -> Self {
         let instance = Instance::new(InstanceDescriptor {
             backends: Backends::PRIMARY,
@@ -197,6 +220,10 @@ impl RenderManager {
         let mut buf = String::with_capacity(file.metadata().map(|m| m.len() as usize).unwrap_or(0));
         file.read_to_string(&mut buf)?;
         Ok(self.register_shader(&buf, label))
+    }
+
+    pub(crate) fn get_shader(&self, handle: ShaderHandle) -> Option<&Shader> {
+        self.shaders.get(handle)
     }
 
     pub fn reorder_passes(&mut self, passes: impl AsRef<[RenderPassHandle]>) {
