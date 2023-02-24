@@ -70,6 +70,11 @@ impl<'a> RenderPipelineBuilder<'a> {
         self
     }
 
+    pub fn polygon_mode(mut self, polygon_mode: PolygonMode) -> Self {
+        self.polygon_mode = polygon_mode;
+        self
+    }
+
     pub fn front_face(mut self, front_face: FrontFace) -> Self {
         self.front_face = Some(front_face);
         self
