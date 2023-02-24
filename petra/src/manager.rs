@@ -227,24 +227,34 @@ impl RenderManager {
             });
 
         for pass_desc in &self.passes {
+            let mut views = Vec::new();
+            let mut attachments = Vec::new();
+
+            for (texture, _) in &pass_desc.attachments {
+                if *texture == FRAMEBUFFER {
+                    views.push(None);
+                } else {
+                    views.push(Some(
+                        self.textures
+                            .get(*texture)
+                            .expect("Invalid TextureHandle found in a render pass")
+                            .get_view(),
+                    ))
+                };
+            }
+
+            for ((_, op), view) in pass_desc.attachments.iter().zip(views.iter()) {
+                // TODO: add support for only enabling some attachements in a pass
+                attachments.push(Some(RenderPassColorAttachment {
+                    view: if let Some(v) = view { v } else { &surface_view },
+                    resolve_target: None,
+                    ops: *op,
+                }));
+            }
+
             let mut pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: pass_desc.name.as_deref(),
-                color_attachments: &pass_desc
-                    .attachments
-                    .iter()
-                    .map(|(t, op)| {
-                        let view = if *t == FRAMEBUFFER {
-                            &surface_view
-                        } else {
-                            unimplemented!("Can't load arbitrary textures yet")
-                        };
-                        Some(RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: *op,
-                        })
-                    })
-                    .collect::<Vec<_>>(),
+                color_attachments: &attachments,
                 depth_stencil_attachment: None,
             });
 
@@ -255,15 +265,20 @@ impl RenderManager {
                     .expect("Invalid RenderPipelineHandle in a render pass");
                 pass.set_pipeline(&pipeline.pipeline);
 
+                let mut min_size = u64::MAX;
+
                 for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
-                    pass.set_vertex_buffer(
-                        i as u32,
-                        self.buffers
-                            .get(*vertex_buffer)
-                            .expect("Invalid BufferHandle in a render pipeline")
-                            .inner()
-                            .slice(..),
-                    )
+                    let buffer = self
+                        .buffers
+                        .get(*vertex_buffer)
+                        .expect("Invalid BufferHandle in a render pipeline")
+                        .inner();
+
+                    if buffer.size() < min_size {
+                        min_size = buffer.size();
+                    }
+
+                    pass.set_vertex_buffer(i as u32, buffer.slice(..))
                 }
 
                 for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
@@ -277,7 +292,7 @@ impl RenderManager {
                     );
                 }
 
-                pass.draw(0 .. 3, 0 .. 1);
+                pass.draw(0 .. min_size as u32, 0 .. 1);
             }
         }
 
