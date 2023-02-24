@@ -12,3 +12,4 @@ wgpu = "0.15"
 winit = "0.28"
 pollster = "0.3"
 bytemuck = "1.13"
+math = {path = "../math"}
