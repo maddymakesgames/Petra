@@ -32,6 +32,7 @@ use crate::{
     handle::{Handle, Registry},
     render_pass::{RenderPassBuilder, RenderPassIntenal},
     render_pipeline::{RenderPipeline, RenderPipelineBuilder},
+    sampler::{TextureSampler, TextureSamplerBuilder},
     shader::{Shader, ShaderHandle},
     texture::{Texture, TextureBuilder, TextureContents, FRAMEBUFFER},
 };
@@ -49,6 +50,7 @@ pub struct RenderManager {
     pub(crate) buffers: Registry<Buffer>,
     pub(crate) textures: Registry<Texture>,
     pub(crate) bind_groups: Registry<BindGroup>,
+    pub(crate) samplers: Registry<TextureSampler>,
 }
 
 impl RenderManager {
@@ -119,6 +121,7 @@ impl RenderManager {
             buffers: Registry::new(),
             textures: Registry::new(),
             bind_groups: Registry::new(),
+            samplers: Registry::new(),
         }
     }
 
@@ -146,6 +149,13 @@ impl RenderManager {
 
     pub fn bind_group_builder<'a>(&'a mut self, label: Label<'a>) -> BindGroupBuilder<'a> {
         BindGroupBuilder::new(self, label)
+    }
+
+    pub fn texture_sampler_builder<'a>(
+        &'a mut self,
+        label: Label<'a>,
+    ) -> TextureSamplerBuilder<'a> {
+        TextureSamplerBuilder::new(self, label)
     }
 
     pub fn write_to_buffer<T: BufferContents>(&mut self, buffer: BufferHandle, data: &[T]) {
@@ -195,7 +205,7 @@ impl RenderManager {
                 .into_iter()
                 .filter(|g| g.depends_texture(Handle::new(texture)))
             {
-                group.recreate(&self.device, &self.buffers, &self.textures)
+                group.recreate(&self.device, &self.buffers, &self.textures, &self.samplers);
             }
         }
     }

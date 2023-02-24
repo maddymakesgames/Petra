@@ -23,6 +23,7 @@ use crate::{
     buffer::{Buffer, BufferContents, BufferHandle},
     handle::{Handle, Registry},
     manager::RenderManager,
+    sampler::{TextureSampleHandle, TextureSampler},
     texture::{Texture, TextureHandle},
 };
 
@@ -34,7 +35,7 @@ pub struct BindGroup {
     bind_group: RawBindGroup,
     buffers: Vec<(u32, BufferHandle)>,
     textures: Vec<(u32, TextureHandle)>,
-    samplers: Vec<(u32, ())>,
+    samplers: Vec<(u32, TextureSampleHandle)>,
 }
 
 impl BindGroup {
@@ -43,7 +44,7 @@ impl BindGroup {
         layout: BindGroupLayout,
         buffers: Vec<(u32, BufferHandle)>,
         textures: Vec<(u32, TextureHandle)>,
-        samplers: Vec<(u32, ())>,
+        samplers: Vec<(u32, TextureSampleHandle)>,
         manager: &mut RenderManager,
     ) -> Self {
         let mut entries = Vec::new();
@@ -79,10 +80,15 @@ impl BindGroup {
             })
         }
 
-        for (binding, _sampler) in &samplers {
+        for (binding, sampler) in &samplers {
+            let sampler = manager
+                .samplers
+                .get(*sampler)
+                .expect("Invalid TextureSamplerHandle passed to BindGroupBuilder")
+                .inner();
             entries.push(BindGroupEntry {
                 binding: *binding,
-                resource: BindingResource::Sampler(todo!("I need to define samplers first lol")),
+                resource: BindingResource::Sampler(sampler),
             })
         }
 
@@ -124,6 +130,7 @@ impl BindGroup {
         device: &Device,
         buffers: &Registry<Buffer>,
         textures: &Registry<Texture>,
+        samplers: &Registry<TextureSampler>,
     ) {
         let mut entries = Vec::new();
         let mut views = Vec::new();
@@ -131,7 +138,7 @@ impl BindGroup {
         for (binding, buffer) in &self.buffers {
             let buffer = buffers
                 .get(*buffer)
-                .expect("Invalid BufferHandle passed to BindGroupBuilder");
+                .expect("Invalid BufferHandle found when recreating BindGroup");
 
             entries.push(BindGroupEntry {
                 binding: *binding,
@@ -142,7 +149,7 @@ impl BindGroup {
         for (binding, texture) in &self.textures {
             let texture = textures
                 .get(*texture)
-                .expect("Invalid TextureHandle passed to BindGroupBuilder");
+                .expect("Invalid TextureHandle found when recreating BindGroup");
 
             let view = texture.get_view();
 
@@ -156,10 +163,14 @@ impl BindGroup {
             })
         }
 
-        for (binding, _sampler) in &self.samplers {
+        for (binding, sampler) in &self.samplers {
+            let sampler = samplers
+                .get(*sampler)
+                .expect("Invalid TextureSamplerHandle found when recreating BindGroup")
+                .inner();
             entries.push(BindGroupEntry {
                 binding: *binding,
-                resource: BindingResource::Sampler(todo!("I need to define samplers first lol")),
+                resource: BindingResource::Sampler(sampler),
             })
         }
 
@@ -180,7 +191,7 @@ pub struct BindGroupBuilder<'a> {
     entries: Vec<BindGroupLayoutEntry>,
     buffers: Vec<(u32, BufferHandle)>,
     textures: Vec<(u32, TextureHandle)>,
-    samplers: Vec<(u32, ())>,
+    samplers: Vec<(u32, TextureSampleHandle)>,
 }
 
 impl<'a> BindGroupBuilder<'a> {
