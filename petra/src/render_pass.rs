@@ -7,15 +7,15 @@ use crate::{
     texture::{TextureHandle, FRAMEBUFFER},
 };
 
-pub type RenderPassHandle = Handle<RenderPassIntenal>;
+pub type RenderPassHandle = Handle<RenderPass>;
 
-pub struct RenderPassIntenal {
+pub struct RenderPass {
     pub name: Option<String>,
     pub attachments: Vec<(TextureHandle, Operations<Color>)>,
     pub pipelines: Vec<PipelineHandle>,
 }
 
-impl RenderPassIntenal {
+impl RenderPass {
     pub fn reorder_pipelines(&mut self, pipeline: impl AsRef<[PipelineHandle]>) {
         self.pipelines = pipeline.as_ref().to_vec();
     }
@@ -69,7 +69,7 @@ impl<'a> RenderPassBuilder<'a> {
         }
 
 
-        self.manager.passes.add(RenderPassIntenal {
+        self.manager.passes.add(RenderPass {
             name: self.name.map(str::to_owned),
             attachments: self.attachments,
             pipelines: self.pipelines,
