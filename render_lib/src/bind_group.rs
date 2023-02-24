@@ -201,6 +201,10 @@ impl<'a> BindGroupBuilder<'a> {
         visibility: ShaderStages,
         buffer: BufferHandle,
     ) -> Self {
+        debug_assert!(
+            std::mem::size_of::<T>() as u64 % wgpu::MAP_ALIGNMENT == 0,
+            "Data accessed by shaders must have an alignment of 8"
+        );
         self.entries.push(BindGroupLayoutEntry {
             binding,
             visibility,
@@ -217,20 +221,26 @@ impl<'a> BindGroupBuilder<'a> {
         self
     }
 
-    pub fn bind_storage_buffer(
+    pub fn bind_storage_buffer<T: BufferContents>(
         mut self,
         binding: u32,
         visibility: ShaderStages,
         read_only: bool,
+        num_elements: Option<u64>,
         buffer: BufferHandle,
     ) -> Self {
+        debug_assert!(
+            std::mem::size_of::<T>() as u64 % wgpu::MAP_ALIGNMENT == 0,
+            "Data accessed by shaders must have an alignment of 8"
+        );
         self.entries.push(BindGroupLayoutEntry {
             binding,
             visibility,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only },
                 has_dynamic_offset: false,
-                min_binding_size: None,
+                min_binding_size: num_elements
+                    .and_then(|size| NonZeroU64::new(size * std::mem::size_of::<T>() as u64)),
             },
             count: None,
         });
