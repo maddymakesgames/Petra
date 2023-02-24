@@ -1,8 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
-use bytemuck::{Pod, Zeroable};
+use math::{Quat, Vec2, Vec3, Vec4};
 use wgpu::VertexBufferLayout;
 pub use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
+
+use crate::buffer::BufferContents;
 
 pub(crate) const fn vertex_format<T: Vertex>() -> VertexBufferLayout<'static> {
     VertexBufferLayout {
@@ -13,7 +15,7 @@ pub(crate) const fn vertex_format<T: Vertex>() -> VertexBufferLayout<'static> {
 }
 
 /// Something that can be used in a vertex buffer
-pub trait Vertex: Pod + Zeroable + Clone + Sized {
+pub trait Vertex: BufferContents {
     /// A description of the different fields in the struct
     ///
     /// Has to be const because we need an `'static` reference<br>
@@ -75,6 +77,10 @@ vertex_fields! {
     [f32; 2], Float32x2,
     [f32; 3], Float32x3,
     [f32; 4], Float32x4,
+    Vec2, Float32x2,
+    Vec3, Float32x3,
+    Vec4, Float32x4,
+    Quat, Float32x4,
     u32, Uint32,
     [u32; 2], Uint32x2,
     [u32; 3], Uint32x3,
