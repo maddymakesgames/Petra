@@ -1,15 +1,15 @@
 [package]
-name = "render_lib"
+name = "petra"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-macros = {path = "../macros"}
+petra_macros = {path = "../macros"}
 
 wgpu = "0.15"
 winit = "0.28"
 pollster = "0.3"
 bytemuck = "1.13"
-math = {path = "../math"}
+petra_math = {path = "../math"}

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use math::{Quat, Vec2, Vec3, Vec4};
+use petra_math::{Quat, Vec2, Vec3, Vec4};
 use wgpu::VertexBufferLayout;
 pub use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
 

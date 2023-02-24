@@ -1,14 +1,14 @@
 use std::f32::consts::*;
 
 use bytemuck::{Pod, Zeroable};
-use math::{Quat, Vec2, Vec3};
-use render_lib::{
+use petra::{
     manager::{RenderManager, SurfaceError},
     render_pipeline::{FrontFace, PrimitiveTopology},
     texture::FRAMEBUFFER,
     wgpu::{Color, PolygonMode, ShaderStages},
     Vertex,
 };
+use petra_math::{Quat, Vec2, Vec3};
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},

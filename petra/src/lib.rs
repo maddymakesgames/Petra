@@ -8,5 +8,5 @@ pub mod shader;
 pub mod texture;
 pub mod vertex;
 
-pub use macros::Vertex;
+pub use petra_macros::Vertex;
 pub use wgpu;

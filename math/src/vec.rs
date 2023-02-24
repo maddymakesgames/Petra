@@ -1,8 +1,8 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use bytemuck::{Pod, Zeroable};
-use macros::swizzles;
 use paste::paste;
+use petra_macros::swizzles;
 
 macro_rules! vector {
     ($({$name: ident, $fields: tt, [$($($aliases: ident),*);*], $swizzle_types: tt})*) => {

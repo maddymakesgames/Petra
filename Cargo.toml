@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "math",
-    "render_lib",
-    "render_test",
+    "demo",
+    "petra",
     "macros"
 ]

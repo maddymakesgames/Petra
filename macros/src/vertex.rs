@@ -43,7 +43,7 @@ pub fn gen_vertex(input: DeriveInput) -> Result<TokenStream> {
 
     let formats = fields_data.iter().map(|(f, _)| {
         quote! {
-            <#f as ::render_lib::vertex::VertexField>::FORMAT
+            <#f as ::petra::vertex::VertexField>::FORMAT
         }
     });
 
@@ -84,16 +84,16 @@ pub fn gen_vertex(input: DeriveInput) -> Result<TokenStream> {
     }
 
     Ok(quote! {
-        impl ::render_lib::vertex::Vertex for #name {
-            const FIELDS: &'static [::render_lib::vertex::VertexAttribute] = &[
-                #(::render_lib::vertex::VertexAttribute {
+        impl ::petra::vertex::Vertex for #name {
+            const FIELDS: &'static [::petra::vertex::VertexAttribute] = &[
+                #(::petra::vertex::VertexAttribute {
                     format: #formats,
                     offset: #offsets,
                     shader_location: #locations as u32
                 }),*
             ];
 
-            const STEP_MODE: ::render_lib::vertex::VertexStepMode = ::render_lib::vertex::VertexStepMode::Vertex;
+            const STEP_MODE: ::petra::vertex::VertexStepMode = ::petra::vertex::VertexStepMode::Vertex;
         }
     })
 }
