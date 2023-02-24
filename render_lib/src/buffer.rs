@@ -172,7 +172,9 @@ impl<'a, T: BufferContents> BufferBuilder<'a, T> {
         }
     }
 
-    pub fn build(self, size: u64) -> BufferHandle {
+    pub fn build(self, count: u64) -> BufferHandle {
+        let size = count * std::mem::size_of::<T>() as u64;
+
         let buffer = Buffer::new::<T>(
             self.manager,
             self.label,
