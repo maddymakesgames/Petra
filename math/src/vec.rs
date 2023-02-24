@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use bytemuck::{Pod, Zeroable};
 use macros::swizzles;
@@ -37,11 +37,23 @@ macro_rules! vector {
             }
         }
 
+        impl AddAssign for $name {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
         impl Sub for $name {
             type Output = $name;
 
             fn sub(self, rhs: Self) -> Self::Output {
                 $name::new($(self.$field - rhs.$field),*)
+            }
+        }
+
+        impl SubAssign for $name {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
             }
         }
 
@@ -61,6 +73,12 @@ macro_rules! vector {
             }
         }
 
+        impl MulAssign<f32> for $name {
+            fn mul_assign(&mut self, rhs: f32) {
+                *self = *self * rhs
+            }
+        }
+
         impl Div<f32> for $name {
             type Output = $name;
 
@@ -77,6 +95,12 @@ macro_rules! vector {
             }
         }
 
+        impl DivAssign<f32> for $name {
+            fn div_assign(&mut self, rhs: f32) {
+                *self = *self / rhs
+            }
+        }
+
         impl Neg for $name {
             type Output = $name;
 
@@ -85,7 +109,17 @@ macro_rules! vector {
             }
         }
 
+        impl Default for $name {
+            fn default() -> Self {
+                Self::ZERO
+            }
+        }
+
         impl $name {
+            pub const ZERO: $name = $name {
+                $($field: 0.0),*
+            };
+
             pub const fn new($($field: f32),*) -> Self {
                 Self {
                     $($field),*

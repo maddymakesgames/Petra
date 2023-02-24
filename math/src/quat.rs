@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut, Mul};
+use std::ops::{Deref, DerefMut, Mul, MulAssign};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -165,5 +165,17 @@ impl Mul for Quat {
             self.x() * rhs.y() - self.y() * rhs.x() + self.z() * rhs.w() + self.w() * rhs.z(),
             -self.x() * rhs.x() - self.y() * rhs.y() - self.z() * rhs.z() + self.w() * rhs.w(),
         ))
+    }
+}
+
+impl MulAssign for Quat {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs;
+    }
+}
+
+impl Default for Quat {
+    fn default() -> Self {
+        Quat::IDENTITY
     }
 }
