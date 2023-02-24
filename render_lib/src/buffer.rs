@@ -24,6 +24,11 @@ use crate::{
 
 pub type BufferHandle = Handle<Buffer>;
 
+/// A marker trait that represents anything that can be safely sent to the gpu in a buffer
+///
+/// # Repr note
+/// The gpu assumes structs have `#[repr(C, align(8))]`<br>
+/// Statisfying this usually involves adding padding fields to satisfy the conditions for [bytemuck::Pod]
 pub trait BufferContents: Any + Clone + Copy + Pod + Zeroable + Sized {}
 
 impl<T: Any + Clone + Copy + Pod + Zeroable + Sized> BufferContents for T {}
@@ -45,6 +50,10 @@ impl Buffer {
         usage: BufferUsages,
         vertex_format: Option<VertexBufferLayout<'static>>,
     ) -> Buffer {
+        debug_assert!(
+            size % wgpu::MAP_ALIGNMENT == 0,
+            "Data accessed by shaders must have an alignment of 8"
+        );
         let raw = manager.device.create_buffer(&BufferDescriptor {
             label,
             size,
