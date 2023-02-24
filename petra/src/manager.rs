@@ -31,8 +31,8 @@ use crate::{
     bind_group::{BindGroup, BindGroupBuilder},
     buffer::{Buffer, BufferBuilder, BufferContents, BufferHandle},
     handle::{Handle, Registry},
-    render_pass::{RenderPassBuilder, RenderPassIntenal},
-    render_pipeline::{RenderPipeline, RenderPipelineBuilder},
+    render_pass::{RenderPassBuilder, RenderPassHandle, RenderPassIntenal},
+    render_pipeline::{PipelineHandle, RenderPipeline, RenderPipelineBuilder},
     sampler::{TextureSampler, TextureSamplerBuilder},
     shader::{Shader, ShaderHandle},
     texture::{Texture, TextureBuilder, TextureContents, FRAMEBUFFER},
@@ -52,6 +52,7 @@ pub struct RenderManager {
     pub(crate) textures: Registry<Texture>,
     pub(crate) bind_groups: Registry<BindGroup>,
     pub(crate) samplers: Registry<TextureSampler>,
+    ordered_passes: Vec<RenderPassHandle>,
 }
 
 impl RenderManager {
@@ -123,6 +124,7 @@ impl RenderManager {
             textures: Registry::new(),
             bind_groups: Registry::new(),
             samplers: Registry::new(),
+            ordered_passes: Vec::new(),
         }
     }
 
@@ -195,6 +197,41 @@ impl RenderManager {
         let mut buf = String::with_capacity(file.metadata().map(|m| m.len() as usize).unwrap_or(0));
         file.read_to_string(&mut buf)?;
         Ok(self.register_shader(&buf, label))
+    }
+
+    pub fn reorder_passes(&mut self, passes: impl AsRef<[RenderPassHandle]>) {
+        if cfg!(debug_assertions) {
+            for pass in passes.as_ref() {
+                debug_assert!(
+                    self.passes.get(*pass).is_some(),
+                    "Invalid pass handle included in RenderManager::reorder_passes"
+                )
+            }
+        }
+
+        self.ordered_passes = passes.as_ref().to_vec();
+    }
+
+    pub fn reorder_pipelines(
+        &mut self,
+        pass: RenderPassHandle,
+        pipelines: impl AsRef<[PipelineHandle]>,
+    ) {
+        if cfg!(debug_assertions) {
+            for pipeline in pipelines.as_ref() {
+                debug_assert!(
+                    self.pipelines.get(*pipeline).is_some(),
+                    "Invalid pipeline handle included in RenderManager::reorder_pipelines"
+                )
+            }
+        }
+
+        let pass = self
+            .passes
+            .get_mut(pass)
+            .expect("Invalid RenderPassHandle in reorder_pipelines");
+
+        pass.reorder_pipelines(pipelines);
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {

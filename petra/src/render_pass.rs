@@ -15,6 +15,12 @@ pub struct RenderPassIntenal {
     pub pipelines: Vec<PipelineHandle>,
 }
 
+impl RenderPassIntenal {
+    pub fn reorder_pipelines(&mut self, pipeline: impl AsRef<[PipelineHandle]>) {
+        self.pipelines = pipeline.as_ref().to_vec();
+    }
+}
+
 pub struct RenderPassBuilder<'a> {
     manager: &'a mut RenderManager,
     attachments: Vec<(TextureHandle, Operations<Color>)>,
