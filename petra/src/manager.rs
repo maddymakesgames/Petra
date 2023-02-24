@@ -160,12 +160,21 @@ impl RenderManager {
     }
 
     pub fn write_to_buffer<T: BufferContents>(&mut self, buffer: BufferHandle, data: &[T]) {
-        let buffer = self
+        let raw_buffer = self
             .buffers
             .get_mut(buffer)
             .expect("Invalid buffer handle passed to write_to_buffer");
 
-        buffer.write_data(data)
+        // If the buffer had to be resized that means the old buffer was destroyed
+        // We need to recreate any bind groups that depend on it
+        if raw_buffer.write_data(data) {
+            for bind_group in (&mut self.bind_groups)
+                .into_iter()
+                .filter(|b| b.depends_buffer(buffer))
+            {
+                bind_group.recreate(&self.device, &self.buffers, &self.textures, &self.samplers)
+            }
+        }
     }
 
     pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> ShaderHandle {

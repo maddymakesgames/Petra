@@ -97,7 +97,7 @@ impl Buffer {
         }
     }
 
-    pub fn write_data<T: BufferContents>(&mut self, data: &[T]) {
+    pub fn write_data<T: BufferContents>(&mut self, data: &[T]) -> bool {
         if TypeId::of::<T>() != self.type_id {
             panic!(
                 "Attempted to write to buffer with a different type than it was initialized with"
@@ -117,8 +117,10 @@ impl Buffer {
             );
 
             old_buf.destroy();
+            true
         } else {
-            self.queue.write_buffer(&self.buffer, 0, byte_slice)
+            self.queue.write_buffer(&self.buffer, 0, byte_slice);
+            false
         }
     }
 
