@@ -37,6 +37,7 @@ pub struct Buffer {
     name: Option<String>,
     buffer: RawBuffer,
     type_id: TypeId,
+    element_size: u64,
     queue: Arc<Queue>,
     device: Arc<Device>,
     vertex_format: Option<VertexBufferLayout<'static>>,
@@ -64,6 +65,7 @@ impl Buffer {
         Buffer {
             buffer: raw,
             type_id: TypeId::of::<T>(),
+            element_size: std::mem::size_of::<T>() as u64,
             queue: manager.queue.clone(),
             device: manager.device.clone(),
             name: label.map(|s| s.to_owned()),
@@ -87,6 +89,7 @@ impl Buffer {
         Buffer {
             buffer: raw,
             type_id: TypeId::of::<T>(),
+            element_size: std::mem::size_of::<T>() as u64,
             queue: manager.queue.clone(),
             device: manager.device.clone(),
             name: label.map(|s| s.to_owned()),
@@ -121,6 +124,10 @@ impl Buffer {
 
     pub(crate) fn inner(&self) -> &RawBuffer {
         &self.buffer
+    }
+
+    pub(crate) fn len(&self) -> u64 {
+        self.buffer.size() / self.element_size
     }
 
     pub(crate) fn vertex_format(&self) -> Option<VertexBufferLayout<'static>> {

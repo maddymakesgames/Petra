@@ -24,6 +24,7 @@ pub struct RenderPipeline {
     pub(crate) pipeline: RawRenderPipeline,
     pub(crate) vertex_buffers: Vec<BufferHandle>,
     pub(crate) bind_groups: Vec<BindGroupHandle>,
+    pub(crate) index_buffers: Option<Handle<crate::buffer::Buffer>>,
 }
 
 pub struct RenderPipelineBuilder<'a> {
@@ -36,6 +37,7 @@ pub struct RenderPipelineBuilder<'a> {
     culling: Option<Face>,
     polygon_mode: PolygonMode,
     vertex_buffers: Vec<BufferHandle>,
+    index_buffers: Option<BufferHandle>,
     bind_groups: Vec<BindGroupHandle>,
 }
 
@@ -51,6 +53,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             culling: None,
             polygon_mode: PolygonMode::Fill,
             vertex_buffers: Vec::new(),
+            index_buffers: None,
             bind_groups: Vec::new(),
         }
     }
@@ -92,6 +95,11 @@ impl<'a> RenderPipelineBuilder<'a> {
 
     pub fn add_bind_group(mut self, bind_group: BindGroupHandle) -> Self {
         self.bind_groups.push(bind_group);
+        self
+    }
+
+    pub fn add_index_buffer(mut self, buffer: BufferHandle) -> Self {
+        self.index_buffers = Some(buffer);
         self
     }
 
@@ -197,6 +205,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         let pipeline = RenderPipeline {
             pipeline,
             vertex_buffers: self.vertex_buffers,
+            index_buffers: self.index_buffers,
             bind_groups: self.bind_groups,
         };
 

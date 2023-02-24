@@ -8,6 +8,7 @@ use wgpu::{
     DeviceDescriptor,
     Dx12Compiler,
     Features,
+    IndexFormat,
     Instance,
     InstanceDescriptor,
     Label,
@@ -265,22 +266,6 @@ impl RenderManager {
                     .expect("Invalid RenderPipelineHandle in a render pass");
                 pass.set_pipeline(&pipeline.pipeline);
 
-                let mut min_size = u64::MAX;
-
-                for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
-                    let buffer = self
-                        .buffers
-                        .get(*vertex_buffer)
-                        .expect("Invalid BufferHandle in a render pipeline")
-                        .inner();
-
-                    if buffer.size() < min_size {
-                        min_size = buffer.size();
-                    }
-
-                    pass.set_vertex_buffer(i as u32, buffer.slice(..))
-                }
-
                 for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
                     pass.set_bind_group(
                         i as u32,
@@ -292,7 +277,53 @@ impl RenderManager {
                     );
                 }
 
-                pass.draw(0 .. min_size as u32, 0 .. 1);
+                if let Some(idx_buffer) = pipeline.index_buffers {
+                    let idx_buffer = self.buffers.get(idx_buffer).expect(
+                        "Invalid BufferHandle used as an index buffer in a render pipeline",
+                    );
+                    let size = idx_buffer.len();
+                    pass.set_index_buffer(
+                        idx_buffer.inner().slice(..),
+                        match idx_buffer.inner().size() / size {
+                            2 => IndexFormat::Uint16,
+                            4 => IndexFormat::Uint32,
+                            _ => panic!("Type of unsupported size used in an index buffer"),
+                        },
+                    );
+
+                    for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
+                        pass.set_vertex_buffer(
+                            i as u32,
+                            self.buffers
+                                .get(*vertex_buffer)
+                                .expect(
+                                    "Invalid BufferHandle used as a vertex buffer in a render \
+                                     pipeline",
+                                )
+                                .inner()
+                                .slice(..),
+                        )
+                    }
+
+                    pass.draw_indexed(0 .. size as u32, 0, 0 .. 1);
+                } else {
+                    let mut min_size = u64::MAX;
+
+                    for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
+                        let buffer = self
+                            .buffers
+                            .get(*vertex_buffer)
+                            .expect("Invalid BufferHandle in a render pipeline");
+
+                        if buffer.len() < min_size {
+                            min_size = buffer.len();
+                        }
+
+                        pass.set_vertex_buffer(i as u32, buffer.inner().slice(..))
+                    }
+
+                    pass.draw(0 .. min_size as u32, 0 .. 1);
+                }
             }
         }
 
