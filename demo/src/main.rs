@@ -20,11 +20,11 @@ const FRAC_2_PI_3: f32 = FRAC_PI_3 * 2.0;
 #[derive(Clone, Copy, Pod, Zeroable, Vertex)]
 #[repr(C)]
 struct ColorPosVertex {
-    pos: Vec2,
+    pos: Vec3,
     color: [f32; 3],
 }
 
-#[derive(Clone, Copy, Pod, Zeroable, Default)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C, align(8))]
 struct TriangleUniform {
     rotation: Quat,
@@ -33,17 +33,28 @@ struct TriangleUniform {
     __padding: f32,
 }
 
+impl Default for TriangleUniform {
+    fn default() -> Self {
+        TriangleUniform {
+            rotation: Quat::IDENTITY,
+            offset: Vec2::ZERO,
+            scale: 0.5,
+            __padding: 0.0,
+        }
+    }
+}
+
 fn build_triangle_vertecies(
-    center: Vec2,
+    center: Vec3,
     side_length: f32,
     initial_rotation: f32,
 ) -> [ColorPosVertex; 3] {
     let a_theta = initial_rotation;
     let b_theta = initial_rotation + FRAC_2_PI_3;
     let c_theta = initial_rotation - FRAC_2_PI_3;
-    let a = center + side_length * Vec2::new(a_theta.cos(), a_theta.sin());
-    let b = center + side_length * Vec2::new(b_theta.cos(), b_theta.sin());
-    let c = center + side_length * Vec2::new(c_theta.cos(), c_theta.sin());
+    let a = center + side_length * Vec3::new(a_theta.cos(), a_theta.sin(), 0.5);
+    let b = center + side_length * Vec3::new(b_theta.cos(), b_theta.sin(), 0.5);
+    let c = center + side_length * Vec3::new(c_theta.cos(), c_theta.sin(), 0.5);
 
     [
         ColorPosVertex {
@@ -61,17 +72,41 @@ fn build_triangle_vertecies(
     ]
 }
 
+fn build_quad_vertecies() -> ([ColorPosVertex; 4], [u16; 6]) {
+    (
+        [
+            ColorPosVertex {
+                pos: Vec3::new(1.0, 1.0, 0.1),
+                color: [1.0, 0.0, 0.0],
+            },
+            ColorPosVertex {
+                pos: Vec3::new(-1.0, 1.0, 0.1),
+                color: [0.0, 1.0, 0.0],
+            },
+            ColorPosVertex {
+                pos: Vec3::new(-1.0, -1.0, 0.1),
+                color: [0.0, 0.0, 1.0],
+            },
+            ColorPosVertex {
+                pos: Vec3::new(1.0, -1.0, 0.1),
+                color: [1.0, 1.0, 1.0],
+            },
+        ],
+        [0, 1, 2, 2, 3, 0],
+    )
+}
+
 fn main() {
     let event_loop = EventLoop::new();
     let window = Window::new(&event_loop).unwrap();
     let mut manager = pollster::block_on(RenderManager::new(window));
 
-    let vertex_buffer = manager
-        .buffer_builder::<ColorPosVertex>(Some("Main Vertex Buffer"))
+    let triangle_vert_buffer = manager
+        .buffer_builder::<ColorPosVertex>(Some("Triangle Vertex Buffer"))
         .vertex()
-        .build_init(build_triangle_vertecies(Vec2::ZERO, 1.0, 0.0).to_vec());
+        .build_init(build_triangle_vertecies(Vec3::ZERO, 1.0, 0.0).to_vec());
 
-    let uniform_buffer = manager
+    let triangle_state_buffer = manager
         .buffer_builder::<TriangleUniform>(Some("Rotation Buffer"))
         .uniform()
         .copy_dst()
@@ -79,7 +114,7 @@ fn main() {
 
     let bind_group = manager
         .bind_group_builder(Some("Triangle Bind Group"))
-        .bind_uniform_buffer::<TriangleUniform>(0, ShaderStages::VERTEX, uniform_buffer)
+        .bind_uniform_buffer::<TriangleUniform>(0, ShaderStages::VERTEX, triangle_state_buffer)
         .build();
 
     let triangle_shader = manager.register_shader(include_str!("../shaders/triangle.wgsl"), None);
@@ -90,12 +125,35 @@ fn main() {
         .topology(PrimitiveTopology::TriangleList)
         .polygon_mode(PolygonMode::Fill)
         .front_face(FrontFace::Cw)
-        .add_vertex_buffer(vertex_buffer)
+        .add_vertex_buffer(triangle_vert_buffer)
+        .add_bind_group(bind_group)
+        .build();
+
+    let (quad_verts, quad_idx) = build_quad_vertecies();
+    let quad_vert_buffer = manager
+        .buffer_builder::<ColorPosVertex>(Some("Quad Vertex Buffer"))
+        .vertex()
+        .build_init(quad_verts.to_vec());
+
+    let quad_idx_buffer = manager
+        .buffer_builder::<u16>(Some("Quad Index Buffer"))
+        .index()
+        .build_init(quad_idx.to_vec());
+
+    let quad_pipeline = manager
+        .pipeline_builder(Some("Quad pipeline"))
+        .vertex_shader(triangle_shader, "vs_main")
+        .fragment_shader(triangle_shader, "fs_main")
+        .topology(PrimitiveTopology::TriangleList)
+        .front_face(FrontFace::Cw)
+        .add_index_buffer(quad_idx_buffer)
+        .add_vertex_buffer(quad_vert_buffer)
         .add_bind_group(bind_group)
         .build();
 
     let _pass = manager
         .pass_builder(Some("Main Pass"))
+        .add_pipeline(quad_pipeline)
         .add_pipeline(triangle_pipeline)
         .add_attachment(FRAMEBUFFER, Some(Color::BLACK), true)
         .build();
@@ -181,7 +239,7 @@ fn main() {
                 if spinning {
                     state.rotation *= Quat::from_axis_angle(Vec3::Z, FRAC_PI_8 / 24.0);
                 }
-                manager.write_to_buffer(uniform_buffer, &[state]);
+                manager.write_to_buffer(triangle_state_buffer, &[state]);
 
 
                 match manager.render() {
