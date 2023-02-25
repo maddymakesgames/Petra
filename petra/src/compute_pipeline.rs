@@ -32,7 +32,7 @@ pub struct ComputePipelineBuilder<'a> {
     bind_groups: Vec<BindGroupHandle>,
     shader: Option<ShaderHandle>,
     entry_point: Option<&'a str>,
-    work_groups: [u32; 3],
+    work_groups: Option<[u32; 3]>,
 }
 
 impl<'a> ComputePipelineBuilder<'a> {
@@ -43,7 +43,7 @@ impl<'a> ComputePipelineBuilder<'a> {
             bind_groups: Vec::new(),
             shader: None,
             entry_point: None,
-            work_groups: [1024; 3],
+            work_groups: None,
         }
     }
 
@@ -57,6 +57,11 @@ impl<'a> ComputePipelineBuilder<'a> {
     pub fn add_bind_group(mut self, bind_group: BindGroupHandle) -> Self {
         self.bind_groups.push(bind_group);
 
+        self
+    }
+
+    pub fn work_groups(mut self, work_groups: [u32; 3]) -> Self {
+        self.work_groups = Some(work_groups);
         self
     }
 
@@ -98,7 +103,9 @@ impl<'a> ComputePipelineBuilder<'a> {
                     entry_point: self.entry_point.unwrap(),
                 }),
             bind_groups: self.bind_groups,
-            work_groups: self.work_groups,
+            work_groups: self
+                .work_groups
+                .expect("No work groups defined for a ComputePipelineBuilder"),
         })
     }
 }
