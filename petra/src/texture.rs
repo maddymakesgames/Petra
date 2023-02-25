@@ -20,7 +20,7 @@ use wgpu::{
 use crate::{handle::Handle, manager::RenderManager};
 
 pub type TextureHandle = Handle<Texture>;
-pub const FRAMEBUFFER: TextureHandle = Handle::new(0);
+pub const FRAMEBUFFER: TextureHandle = Handle::new(usize::MAX);
 
 pub struct Texture {
     name: Option<String>,
@@ -181,6 +181,31 @@ impl<'a, T: TextureContents> TextureBuilder<'a, T> {
 
     pub fn size_scaled_framebuffer(mut self, width_scale: f32, height_scale: f32) -> Self {
         self.size = Some(TextureSize::ScaledSurface(width_scale, height_scale));
+        self
+    }
+
+    pub fn copy_src(mut self) -> Self {
+        self.usage |= TextureUsages::COPY_SRC;
+        self
+    }
+
+    pub fn copy_dst(mut self) -> Self {
+        self.usage |= TextureUsages::COPY_DST;
+        self
+    }
+
+    pub fn texture(mut self) -> Self {
+        self.usage |= TextureUsages::TEXTURE_BINDING;
+        self
+    }
+
+    pub fn storage(mut self) -> Self {
+        self.usage |= TextureUsages::STORAGE_BINDING;
+        self
+    }
+
+    pub fn render(mut self) -> Self {
+        self.usage |= TextureUsages::RENDER_ATTACHMENT;
         self
     }
 
