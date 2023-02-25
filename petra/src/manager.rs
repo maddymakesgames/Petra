@@ -3,7 +3,9 @@ use std::{fs::OpenOptions, io::Read, path::Path, sync::Arc};
 pub use wgpu::SurfaceError;
 use wgpu::{
     Backends,
+    CommandEncoder,
     CommandEncoderDescriptor,
+    ComputePassDescriptor,
     Device,
     DeviceDescriptor,
     Dx12Compiler,
@@ -23,6 +25,7 @@ use wgpu::{
     Surface,
     SurfaceConfiguration,
     TextureUsages,
+    TextureView,
     TextureViewDescriptor,
 };
 use winit::{dpi::PhysicalSize, window::Window};
@@ -30,6 +33,8 @@ use winit::{dpi::PhysicalSize, window::Window};
 use crate::{
     bind_group::{BindGroup, BindGroupBuilder},
     buffer::{Buffer, BufferBuilder, BufferContents, BufferHandle},
+    compute_pass::{ComputePass, ComputePassBuilder, ComputePassHandle},
+    compute_pipeline::{ComputePipeline, ComputePipelineBuilder},
     handle::{Handle, Registry},
     render_pass::{RenderPass, RenderPassBuilder, RenderPassHandle},
     render_pipeline::{PipelineHandle, RenderPipeline, RenderPipelineBuilder},
@@ -45,14 +50,16 @@ pub struct RenderManager {
     pub(crate) queue: Arc<Queue>,
     pub(crate) config: SurfaceConfiguration,
     pub(crate) size: PhysicalSize<u32>,
-    passes: Registry<RenderPass>,
-    pipelines: Registry<RenderPipeline>,
+    passes: PassManager,
+    render_passes: Registry<RenderPass>,
+    compute_passes: Registry<ComputePass>,
+    render_pipelines: Registry<RenderPipeline>,
+    compute_pipelines: Registry<ComputePipeline>,
     shaders: Registry<Shader>,
     buffers: Registry<Buffer>,
     textures: Registry<Texture>,
     bind_groups: Registry<BindGroup>,
     samplers: Registry<TextureSampler>,
-    ordered_passes: Vec<RenderPassHandle>,
 }
 
 macro_rules! add_resource_methods {
@@ -71,8 +78,8 @@ macro_rules! add_resource_methods {
 }
 impl RenderManager {
     add_resource_methods! {
-        add_pass, get_pass, passes, RenderPass,
-        add_pipeline, get_pipeline, pipelines, RenderPipeline,
+        add_render_pipeline, get_render_pipeline, render_pipelines, RenderPipeline,
+        add_compute_pipeline, get_compute_pipeline, compute_pipelines, ComputePipeline,
         add_buffer, get_buffer, buffers, Buffer,
         add_texture, get_texture, textures, Texture,
         add_sampler, get_sampler, samplers, TextureSampler,
@@ -140,23 +147,39 @@ impl RenderManager {
             queue: Arc::new(queue),
             config,
             size: window_size,
-            passes: Registry::new(),
-            pipelines: Registry::new(),
+            passes: PassManager::new(),
+            render_passes: Registry::new(),
+            render_pipelines: Registry::new(),
+            compute_passes: Registry::new(),
+            compute_pipelines: Registry::new(),
             shaders: Registry::new(),
             buffers: Registry::new(),
             textures: Registry::new(),
             bind_groups: Registry::new(),
             samplers: Registry::new(),
-            ordered_passes: Vec::new(),
         }
     }
 
-    pub fn pipeline_builder<'a>(&'a mut self, label: Label<'a>) -> RenderPipelineBuilder<'a> {
+    pub fn render_pipeline_builder<'a>(
+        &'a mut self,
+        label: Label<'a>,
+    ) -> RenderPipelineBuilder<'a> {
         RenderPipelineBuilder::new(self, label)
     }
 
-    pub fn pass_builder<'a>(&'a mut self, label: Label<'a>) -> RenderPassBuilder<'a> {
+    pub fn compute_pipeline_builder<'a>(
+        &'a mut self,
+        label: Label<'a>,
+    ) -> ComputePipelineBuilder<'a> {
+        ComputePipelineBuilder::new(self, label)
+    }
+
+    pub fn render_pass_builder<'a>(&'a mut self, label: Label<'a>) -> RenderPassBuilder<'a> {
         RenderPassBuilder::new(self, label)
+    }
+
+    pub fn compute_pass_builder<'a>(&'a mut self, label: Label<'a>) -> ComputePassBuilder<'a> {
+        ComputePassBuilder::new(self, label)
     }
 
     pub fn buffer_builder<'a, T: BufferContents>(
@@ -202,6 +225,18 @@ impl RenderManager {
         }
     }
 
+    pub fn add_render_pass(&mut self, pass: RenderPass) -> RenderPassHandle {
+        let handle = self.render_passes.add(pass);
+        self.passes.add_render_pass(handle);
+        handle
+    }
+
+    pub fn add_compute_pass(&mut self, pass: ComputePass) -> ComputePassHandle {
+        let handle = self.compute_passes.add(pass);
+        self.passes.add_compute_pass(handle);
+        handle
+    }
+
     pub fn register_shader(&mut self, shader: &str, label: Label<'_>) -> ShaderHandle {
         let module = self.device.create_shader_module(ShaderModuleDescriptor {
             label,
@@ -226,19 +261,6 @@ impl RenderManager {
         self.shaders.get(handle)
     }
 
-    pub fn reorder_passes(&mut self, passes: impl AsRef<[RenderPassHandle]>) {
-        if cfg!(debug_assertions) {
-            for pass in passes.as_ref() {
-                debug_assert!(
-                    self.passes.get(*pass).is_some(),
-                    "Invalid pass handle included in RenderManager::reorder_passes"
-                )
-            }
-        }
-
-        self.ordered_passes = passes.as_ref().to_vec();
-    }
-
     pub fn reorder_pipelines(
         &mut self,
         pass: RenderPassHandle,
@@ -247,14 +269,14 @@ impl RenderManager {
         if cfg!(debug_assertions) {
             for pipeline in pipelines.as_ref() {
                 debug_assert!(
-                    self.pipelines.get(*pipeline).is_some(),
+                    self.render_pipelines.get(*pipeline).is_some(),
                     "Invalid pipeline handle included in RenderManager::reorder_pipelines"
                 )
             }
         }
 
         let pass = self
-            .passes
+            .render_passes
             .get_mut(pass)
             .expect("Invalid RenderPassHandle in reorder_pipelines");
 
@@ -300,103 +322,11 @@ impl RenderManager {
                 label: Some("Main Render"),
             });
 
-        for pass_desc in &self.passes {
-            let mut views = Vec::new();
-            let mut attachments = Vec::new();
-
-            for (texture, _) in &pass_desc.attachments {
-                if *texture == FRAMEBUFFER {
-                    views.push(None);
-                } else {
-                    views.push(Some(
-                        self.textures
-                            .get(*texture)
-                            .expect("Invalid TextureHandle found in a render pass")
-                            .get_view(),
-                    ))
-                };
-            }
-
-            for ((_, op), view) in pass_desc.attachments.iter().zip(views.iter()) {
-                // TODO: add support for only enabling some attachements in a pass
-                attachments.push(Some(RenderPassColorAttachment {
-                    view: if let Some(v) = view { v } else { &surface_view },
-                    resolve_target: None,
-                    ops: *op,
-                }));
-            }
-
-            let mut pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: pass_desc.name.as_deref(),
-                color_attachments: &attachments,
-                depth_stencil_attachment: None,
-            });
-
-            for pipeline in &pass_desc.pipelines {
-                let pipeline = self
-                    .pipelines
-                    .get(*pipeline)
-                    .expect("Invalid RenderPipelineHandle in a render pass");
-                pass.set_pipeline(&pipeline.pipeline);
-
-                for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
-                    pass.set_bind_group(
-                        i as u32,
-                        self.bind_groups
-                            .get(*bind_group)
-                            .expect("Invalid BindGroupHandle in a render pipeline")
-                            .inner(),
-                        &[],
-                    );
-                }
-
-                if let Some(idx_buffer) = pipeline.index_buffers {
-                    let idx_buffer = self.buffers.get(idx_buffer).expect(
-                        "Invalid BufferHandle used as an index buffer in a render pipeline",
-                    );
-                    let size = idx_buffer.len();
-                    pass.set_index_buffer(
-                        idx_buffer.inner().slice(..),
-                        match idx_buffer.inner().size() / size {
-                            2 => IndexFormat::Uint16,
-                            4 => IndexFormat::Uint32,
-                            _ => panic!("Type of unsupported size used in an index buffer"),
-                        },
-                    );
-
-                    for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
-                        pass.set_vertex_buffer(
-                            i as u32,
-                            self.buffers
-                                .get(*vertex_buffer)
-                                .expect(
-                                    "Invalid BufferHandle used as a vertex buffer in a render \
-                                     pipeline",
-                                )
-                                .inner()
-                                .slice(..),
-                        )
-                    }
-
-                    pass.draw_indexed(0 .. size as u32, 0, 0 .. 1);
-                } else {
-                    let mut min_size = u64::MAX;
-
-                    for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
-                        let buffer = self
-                            .buffers
-                            .get(*vertex_buffer)
-                            .expect("Invalid BufferHandle in a render pipeline");
-
-                        if buffer.len() < min_size {
-                            min_size = buffer.len();
-                        }
-
-                        pass.set_vertex_buffer(i as u32, buffer.inner().slice(..))
-                    }
-
-                    pass.draw(0 .. min_size as u32, 0 .. 1);
-                }
+        for pass in &self.passes {
+            match pass {
+                PassHandle::RenderPass(pass) =>
+                    self.run_render_pass(pass, &mut command_encoder, &surface_view),
+                PassHandle::ComputePass(pass) => self.run_compute_pass(pass, &mut command_encoder),
             }
         }
 
@@ -405,4 +335,215 @@ impl RenderManager {
 
         Ok(())
     }
+
+    fn run_compute_pass(&self, pass: ComputePassHandle, command_encoder: &mut CommandEncoder) {
+        let pass_desc = self.compute_passes.get(pass).unwrap();
+        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: pass_desc.name.as_deref(),
+        });
+
+        for pipeline in &pass_desc.pipelines {
+            let pipeline = self.compute_pipelines.get(*pipeline).unwrap();
+
+            pass.set_pipeline(pipeline.inner());
+
+            for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
+                pass.set_bind_group(
+                    i as u32,
+                    self.bind_groups
+                        .get(*bind_group)
+                        .expect("Invalid BindGroupHandle in a render pipeline")
+                        .inner(),
+                    &[],
+                );
+            }
+
+            pass.dispatch_workgroups(
+                pipeline.work_groups[0],
+                pipeline.work_groups[1],
+                pipeline.work_groups[2],
+            )
+        }
+    }
+
+    fn run_render_pass(
+        &self,
+        pass: RenderPassHandle,
+        command_encoder: &mut CommandEncoder,
+        surface_view: &TextureView,
+    ) {
+        let mut views = Vec::new();
+        let mut attachments = Vec::new();
+        let pass_desc = self.render_passes.get(pass).unwrap();
+
+        for (texture, _) in &pass_desc.attachments {
+            if *texture == FRAMEBUFFER {
+                views.push(None);
+            } else {
+                views.push(Some(
+                    self.textures
+                        .get(*texture)
+                        .expect("Invalid TextureHandle found in a render pass")
+                        .get_view(),
+                ))
+            };
+        }
+
+        for ((_, op), view) in pass_desc.attachments.iter().zip(views.iter()) {
+            // TODO: add support for only enabling some attachements in a pass
+            attachments.push(Some(RenderPassColorAttachment {
+                view: if let Some(v) = view { v } else { surface_view },
+                resolve_target: None,
+                ops: *op,
+            }));
+        }
+
+        let mut pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: pass_desc.name.as_deref(),
+            color_attachments: &attachments,
+            depth_stencil_attachment: None,
+        });
+
+        for pipeline in &pass_desc.pipelines {
+            let pipeline = self
+                .render_pipelines
+                .get(*pipeline)
+                .expect("Invalid RenderPipelineHandle in a render pass");
+            pass.set_pipeline(&pipeline.pipeline);
+
+            for (i, bind_group) in pipeline.bind_groups.iter().enumerate() {
+                pass.set_bind_group(
+                    i as u32,
+                    self.bind_groups
+                        .get(*bind_group)
+                        .expect("Invalid BindGroupHandle in a render pipeline")
+                        .inner(),
+                    &[],
+                );
+            }
+
+            if let Some(idx_buffer) = pipeline.index_buffers {
+                let idx_buffer = self
+                    .buffers
+                    .get(idx_buffer)
+                    .expect("Invalid BufferHandle used as an index buffer in a render pipeline");
+                let size = idx_buffer.len();
+                pass.set_index_buffer(
+                    idx_buffer.inner().slice(..),
+                    match idx_buffer.inner().size() / size {
+                        2 => IndexFormat::Uint16,
+                        4 => IndexFormat::Uint32,
+                        _ => panic!("Type of unsupported size used in an index buffer"),
+                    },
+                );
+
+                for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
+                    pass.set_vertex_buffer(
+                        i as u32,
+                        self.buffers
+                            .get(*vertex_buffer)
+                            .expect(
+                                "Invalid BufferHandle used as a vertex buffer in a render pipeline",
+                            )
+                            .inner()
+                            .slice(..),
+                    )
+                }
+
+                pass.draw_indexed(0 .. size as u32, 0, 0 .. 1);
+            } else {
+                let mut min_size = u64::MAX;
+
+                for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
+                    let buffer = self
+                        .buffers
+                        .get(*vertex_buffer)
+                        .expect("Invalid BufferHandle in a render pipeline");
+
+                    if buffer.len() < min_size {
+                        min_size = buffer.len();
+                    }
+
+                    pass.set_vertex_buffer(i as u32, buffer.inner().slice(..))
+                }
+
+                pass.draw(0 .. min_size as u32, 0 .. 1);
+            }
+        }
+    }
+}
+
+pub struct PassManager {
+    render_passes: Vec<RenderPassHandle>,
+    compute_passes: Vec<ComputePassHandle>,
+    ordered_passes: Vec<(usize, PassType)>,
+}
+
+impl PassManager {
+    pub(crate) fn new() -> PassManager {
+        PassManager {
+            render_passes: Vec::new(),
+            compute_passes: Vec::new(),
+            ordered_passes: Vec::new(),
+        }
+    }
+
+    pub fn add_compute_pass(&mut self, handle: ComputePassHandle) {
+        self.ordered_passes
+            .push((self.compute_passes.len(), PassType::Compute));
+        self.compute_passes.push(handle);
+    }
+
+    pub fn add_render_pass(&mut self, handle: RenderPassHandle) {
+        self.ordered_passes
+            .push((self.render_passes.len(), PassType::Render));
+        self.render_passes.push(handle);
+    }
+}
+
+impl<'a> IntoIterator for &'a PassManager {
+    type IntoIter = PassIter<'a>;
+    type Item = PassHandle;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PassIter {
+            render: &self.render_passes,
+            compute: &self.compute_passes,
+            ordered: &self.ordered_passes,
+            curr: 0,
+        }
+    }
+}
+
+pub struct PassIter<'a> {
+    render: &'a [RenderPassHandle],
+    compute: &'a [ComputePassHandle],
+    ordered: &'a [(usize, PassType)],
+    curr: usize,
+}
+
+impl<'a> Iterator for PassIter<'a> {
+    type Item = PassHandle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self
+            .ordered
+            .get(self.curr)
+            .and_then(|(i, kind)| match kind {
+                PassType::Render => self.render.get(*i).copied().map(PassHandle::RenderPass),
+                PassType::Compute => self.compute.get(*i).copied().map(PassHandle::ComputePass),
+            });
+        self.curr += 1;
+        next
+    }
+}
+
+pub enum PassType {
+    Render,
+    Compute,
+}
+
+pub enum PassHandle {
+    RenderPass(RenderPassHandle),
+    ComputePass(ComputePassHandle),
 }

@@ -205,6 +205,6 @@ impl<'a> RenderPipelineBuilder<'a> {
             bind_groups: self.bind_groups,
         };
 
-        self.manager.add_pipeline(pipeline)
+        self.manager.add_render_pipeline(pipeline)
     }
 }
