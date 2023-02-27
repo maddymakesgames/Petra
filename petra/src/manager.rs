@@ -437,22 +437,52 @@ impl RenderManager {
                     },
                 );
 
+                let mut vertex_buffer_size = None;
+
                 for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
-                    pass.set_vertex_buffer(
-                        i as u32,
-                        self.buffers
-                            .get(*vertex_buffer)
-                            .expect(
-                                "Invalid BufferHandle used as a vertex buffer in a render pipeline",
-                            )
-                            .inner()
-                            .slice(..),
-                    )
+                    let buffer = self.buffers.get(*vertex_buffer).expect(
+                        "Invalid BufferHandle used as a vertex buffer in a render pipeline",
+                    );
+
+                    if let Some(size) = vertex_buffer_size {
+                        debug_assert!(
+                            size == buffer.len(),
+                            "Vertex buffers in render pipeline have different lengths. Found \
+                             buffer with length {}, expected {size}.",
+                            buffer.len()
+                        )
+                    } else {
+                        vertex_buffer_size = Some(buffer.len());
+                    }
+
+                    pass.set_vertex_buffer(i as u32, buffer.inner().slice(..))
                 }
 
-                pass.draw_indexed(0 .. size as u32, 0, 0 .. 1);
+                let max_vertex_buffer = pipeline.vertex_buffers.len();
+                let mut instance_size = None;
+
+                for (i, instance_buffer) in pipeline.instance_buffers.iter().enumerate() {
+                    let buffer = self.buffers.get(*instance_buffer).expect(
+                        "Invalid BufferHandle used as an instance buffer in a render pipeline",
+                    );
+
+                    if let Some(size) = instance_size {
+                        debug_assert!(
+                            buffer.len() as u32 == size,
+                            "Instance buffers in render pipeline have different lengths, ensure \
+                             all instance buffers have the same length",
+                        )
+                    } else {
+                        instance_size = Some(buffer.len() as u32);
+                    }
+
+                    // We ensure that instance buffers come after vertex buffers
+                    pass.set_vertex_buffer((i + max_vertex_buffer) as u32, buffer.inner().slice(..))
+                }
+
+                pass.draw_indexed(0 .. size as u32, 0, 0 .. instance_size.unwrap_or(1));
             } else {
-                let mut min_size = u64::MAX;
+                let mut vertex_buffer_size = None;
 
                 for (i, vertex_buffer) in pipeline.vertex_buffers.iter().enumerate() {
                     let buffer = self
@@ -460,14 +490,23 @@ impl RenderManager {
                         .get(*vertex_buffer)
                         .expect("Invalid BufferHandle in a render pipeline");
 
-                    if buffer.len() < min_size {
-                        min_size = buffer.len();
+                    if let Some(size) = vertex_buffer_size {
+                        debug_assert!(
+                            size == buffer.len(),
+                            "Vertex buffers in render pipeline have different lengths. Found \
+                             buffer with length {}, expected {size}.",
+                            buffer.len()
+                        )
+                    } else {
+                        vertex_buffer_size = Some(buffer.len());
                     }
 
                     pass.set_vertex_buffer(i as u32, buffer.inner().slice(..))
                 }
 
-                pass.draw(0 .. min_size as u32, 0 .. 1);
+                // If no vertex buffers were attached we just default to drawing one vertex
+                // TODO: add a way to specify vertex count when no vertex buffers were attached
+                pass.draw(0 .. vertex_buffer_size.unwrap_or(1) as u32, 0 .. 1);
             }
         }
     }

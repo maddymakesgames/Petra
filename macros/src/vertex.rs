@@ -92,8 +92,6 @@ pub fn gen_vertex(input: DeriveInput) -> Result<TokenStream> {
                     shader_location: #locations as u32
                 }),*
             ];
-
-            const STEP_MODE: ::petra::vertex::VertexStepMode = ::petra::vertex::VertexStepMode::Vertex;
         }
     })
 }

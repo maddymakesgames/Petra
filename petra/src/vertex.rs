@@ -6,10 +6,12 @@ pub use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
 
 use crate::buffer::BufferContents;
 
-pub(crate) const fn vertex_format<T: Vertex>() -> VertexBufferLayout<'static> {
+pub(crate) const fn vertex_format<T: Vertex>(
+    step_mode: VertexStepMode,
+) -> VertexBufferLayout<'static> {
     VertexBufferLayout {
         array_stride: std::mem::size_of::<T>() as u64,
-        step_mode: T::STEP_MODE,
+        step_mode,
         attributes: T::FIELDS,
     }
 }
@@ -21,8 +23,6 @@ pub trait Vertex: BufferContents {
     /// Has to be const because we need an `'static` reference<br>
     /// The place we use this needs a reference to the array and theres no easy way to do that without it being `'static`
     const FIELDS: &'static [VertexAttribute];
-    /// How often the data sent to the shader should change
-    const STEP_MODE: VertexStepMode;
 }
 
 pub trait VertexField {

@@ -23,6 +23,7 @@ pub type PipelineHandle = Handle<RenderPipeline>;
 pub struct RenderPipeline {
     pub(crate) pipeline: RawRenderPipeline,
     pub(crate) vertex_buffers: Vec<BufferHandle>,
+    pub(crate) instance_buffers: Vec<BufferHandle>,
     pub(crate) bind_groups: Vec<BindGroupHandle>,
     pub(crate) index_buffers: Option<Handle<crate::buffer::Buffer>>,
 }
@@ -38,6 +39,7 @@ pub struct RenderPipelineBuilder<'a> {
     polygon_mode: PolygonMode,
     vertex_buffers: Vec<BufferHandle>,
     index_buffers: Option<BufferHandle>,
+    instance_buffers: Vec<BufferHandle>,
     bind_groups: Vec<BindGroupHandle>,
 }
 
@@ -54,6 +56,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             polygon_mode: PolygonMode::Fill,
             vertex_buffers: Vec::new(),
             index_buffers: None,
+            instance_buffers: Vec::new(),
             bind_groups: Vec::new(),
         }
     }
@@ -90,6 +93,11 @@ impl<'a> RenderPipelineBuilder<'a> {
 
     pub fn add_vertex_buffer(mut self, buffer: BufferHandle) -> Self {
         self.vertex_buffers.push(buffer);
+        self
+    }
+
+    pub fn add_instance_buffer(mut self, buffer: BufferHandle) -> Self {
+        self.instance_buffers.push(buffer);
         self
     }
 
@@ -168,6 +176,22 @@ impl<'a> RenderPipelineBuilder<'a> {
             }));
         }
 
+        for handle in &self.instance_buffers {
+            let buffer = self
+                .manager
+                .get_buffer(*handle)
+                .expect("Invalid Buffer Handle passed as an instance buffer");
+
+            vertex_buffers.push(buffer.vertex_format().unwrap_or_else(|| {
+                panic!(
+                    "Attempted to attach buffer {:?} to pipeline {:?} as an instance buffer, but \
+                     the buffer cannot be used as an instance buffer",
+                    buffer.name(),
+                    self.name
+                )
+            }));
+        }
+
         let pipeline = self
             .manager
             .device
@@ -201,6 +225,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         let pipeline = RenderPipeline {
             pipeline,
             vertex_buffers: self.vertex_buffers,
+            instance_buffers: self.instance_buffers,
             index_buffers: self.index_buffers,
             bind_groups: self.bind_groups,
         };

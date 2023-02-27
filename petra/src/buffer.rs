@@ -14,6 +14,7 @@ use wgpu::{
     Label,
     Queue,
     VertexBufferLayout,
+    VertexStepMode,
 };
 
 use crate::{
@@ -211,7 +212,13 @@ impl<'a, T: BufferContents> BufferBuilder<'a, T> {
 impl<'a, T: Vertex> BufferBuilder<'a, T> {
     pub fn vertex(mut self) -> Self {
         self.usages |= BufferUsages::VERTEX;
-        self.vertex_format = Some(vertex_format::<T>());
+        self.vertex_format = Some(vertex_format::<T>(VertexStepMode::Vertex));
+        self
+    }
+
+    pub fn instance(mut self) -> Self {
+        self.usages |= BufferUsages::VERTEX;
+        self.vertex_format = Some(vertex_format::<T>(VertexStepMode::Instance));
         self
     }
 }
