@@ -124,7 +124,7 @@ fn main() {
 
     manager
         .render_pass_builder(Some("Clear Pass"))
-        .add_attachment(FRAMEBUFFER, Some(Color::BLACK), true)
+        .add_color_attachment(FRAMEBUFFER, Some(Color::BLACK), true)
         .build();
 
     let compute_shader = manager.register_shader(include_str!("../shaders/compute.wgsl"), None);
@@ -226,7 +226,7 @@ fn main() {
         .render_pass_builder(Some("Main Pass"))
         .add_pipeline(quad_pipeline)
         // .add_pipeline(triangle_pipeline)
-        .add_attachment(FRAMEBUFFER, None, true)
+        .add_color_attachment(FRAMEBUFFER, None, true)
         .build();
 
     let mut spinning = true;
