@@ -18,6 +18,7 @@ use wgpu::{
     PowerPreference,
     Queue,
     RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment,
     RenderPassDescriptor,
     RequestAdapterOptions,
     ShaderModuleDescriptor,
@@ -366,6 +367,9 @@ impl RenderManager {
         }
     }
 
+    // Needed since we never read from depth_stencil_view
+    // It's only used to keep the reference to the TextureView alive
+    #[allow(unused_assignments)]
     fn run_render_pass(
         &self,
         pass: RenderPassHandle,
@@ -376,7 +380,7 @@ impl RenderManager {
         let mut attachments = Vec::new();
         let pass_desc = self.render_passes.get(pass).unwrap();
 
-        for (texture, _) in &pass_desc.attachments {
+        for (texture, _) in &pass_desc.color_attachments {
             if *texture == FRAMEBUFFER {
                 views.push(None);
             } else {
@@ -389,7 +393,7 @@ impl RenderManager {
             };
         }
 
-        for ((_, op), view) in pass_desc.attachments.iter().zip(views.iter()) {
+        for ((_, op), view) in pass_desc.color_attachments.iter().zip(views.iter()) {
             // TODO: add support for only enabling some attachements in a pass
             attachments.push(Some(RenderPassColorAttachment {
                 view: if let Some(v) = view { v } else { surface_view },
@@ -398,10 +402,28 @@ impl RenderManager {
             }));
         }
 
+        let mut depth_stencil_view = None;
+        let depth_stencil = if let Some(d) = &pass_desc.depth_attachments {
+            depth_stencil_view = Some(
+                self.textures
+                    .get(d.texture)
+                    .expect("Invalid TextureHandle in a render pass as a depth stencil attachment")
+                    .get_view(),
+            );
+            Some(RenderPassDepthStencilAttachment {
+                view: depth_stencil_view.as_ref().unwrap(),
+                depth_ops: d.depth_op,
+                stencil_ops: d.stencil_op,
+            })
+        } else {
+            None
+        };
+
+
         let mut pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
             label: pass_desc.name.as_deref(),
             color_attachments: &attachments,
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: depth_stencil,
         });
 
         for pipeline in &pass_desc.pipelines {

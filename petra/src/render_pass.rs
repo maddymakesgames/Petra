@@ -11,7 +11,8 @@ pub type RenderPassHandle = Handle<RenderPass>;
 
 pub struct RenderPass {
     pub name: Option<String>,
-    pub attachments: Vec<(TextureHandle, Operations<Color>)>,
+    pub color_attachments: Vec<(TextureHandle, Operations<Color>)>,
+    pub depth_attachments: Option<DepthAttachment>,
     pub pipelines: Vec<PipelineHandle>,
 }
 
@@ -21,9 +22,16 @@ impl RenderPass {
     }
 }
 
+pub struct DepthAttachment {
+    pub texture: TextureHandle,
+    pub depth_op: Option<Operations<f32>>,
+    pub stencil_op: Option<Operations<u32>>,
+}
+
 pub struct RenderPassBuilder<'a> {
     manager: &'a mut RenderManager,
-    attachments: Vec<(TextureHandle, Operations<Color>)>,
+    color_attachments: Vec<(TextureHandle, Operations<Color>)>,
+    depth_attachments: Option<DepthAttachment>,
     name: Label<'a>,
     pipelines: Vec<PipelineHandle>,
 }
@@ -32,24 +40,21 @@ impl<'a> RenderPassBuilder<'a> {
     pub(crate) fn new(manager: &'a mut RenderManager, name: Label<'a>) -> RenderPassBuilder<'a> {
         RenderPassBuilder {
             manager,
-            attachments: Vec::new(),
+            color_attachments: Vec::new(),
+            depth_attachments: None,
             name,
             pipelines: Vec::new(),
         }
     }
 
-    pub fn add_attachment(
+    pub fn add_color_attachment(
         mut self,
         texture: TextureHandle,
         clear_color: Option<Color>,
         store: bool,
     ) -> RenderPassBuilder<'a> {
-        self.attachments.push((texture, Operations {
-            load: if let Some(color) = clear_color {
-                LoadOp::Clear(color)
-            } else {
-                LoadOp::Load
-            },
+        self.color_attachments.push((texture, Operations {
+            load: clear_color.map(LoadOp::Clear).unwrap_or(LoadOp::Load),
             store,
         }));
         self
@@ -60,9 +65,31 @@ impl<'a> RenderPassBuilder<'a> {
         self
     }
 
+    pub fn add_depth_stencil_attachment(
+        mut self,
+        texture: TextureHandle,
+        depth: Option<(Option<f32>, bool)>,
+        stencil: Option<(Option<u32>, bool)>,
+    ) -> Self {
+        self.depth_attachments = Some(DepthAttachment {
+            texture,
+            depth_op: depth.map(|(clear, store)| Operations {
+                load: clear.map(LoadOp::Clear).unwrap_or(LoadOp::Load),
+                store,
+            }),
+            stencil_op: stencil.map(|(clear, store)| Operations {
+                load: clear.map(LoadOp::Clear).unwrap_or(LoadOp::Load),
+                store,
+            }),
+        });
+        self
+    }
+
     pub fn build(mut self) -> RenderPassHandle {
-        if self.attachments.is_empty() {
-            self.attachments.push((FRAMEBUFFER, Operations {
+        // Assume that if no color attachments were added
+        // then we want to render just to the framebuffer
+        if self.color_attachments.is_empty() {
+            self.color_attachments.push((FRAMEBUFFER, Operations {
                 load: LoadOp::Load,
                 store: true,
             }));
@@ -71,7 +98,8 @@ impl<'a> RenderPassBuilder<'a> {
 
         self.manager.add_render_pass(RenderPass {
             name: self.name.map(str::to_owned),
-            attachments: self.attachments,
+            color_attachments: self.color_attachments,
+            depth_attachments: self.depth_attachments,
             pipelines: self.pipelines,
         })
     }

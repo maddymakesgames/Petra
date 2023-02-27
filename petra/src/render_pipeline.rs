@@ -1,5 +1,7 @@
-pub use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 use wgpu::{
+    CompareFunction,
+    DepthBiasState,
+    DepthStencilState,
     FragmentState,
     Label,
     MultisampleState,
@@ -7,8 +9,10 @@ use wgpu::{
     PrimitiveState,
     RenderPipeline as RawRenderPipeline,
     RenderPipelineDescriptor,
+    StencilState,
     VertexState,
 };
+pub use wgpu::{Face, FrontFace, PolygonMode, PrimitiveTopology};
 
 use crate::{
     bind_group::BindGroupHandle,
@@ -16,6 +20,7 @@ use crate::{
     handle::Handle,
     manager::RenderManager,
     shader::ShaderHandle,
+    texture::TextureContents,
 };
 
 pub type PipelineHandle = Handle<RenderPipeline>;
@@ -41,6 +46,7 @@ pub struct RenderPipelineBuilder<'a> {
     index_buffers: Option<BufferHandle>,
     instance_buffers: Vec<BufferHandle>,
     bind_groups: Vec<BindGroupHandle>,
+    depth_stencil: Option<DepthStencilState>,
 }
 
 impl<'a> RenderPipelineBuilder<'a> {
@@ -58,6 +64,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             index_buffers: None,
             instance_buffers: Vec::new(),
             bind_groups: Vec::new(),
+            depth_stencil: None,
         }
     }
 
@@ -108,6 +115,24 @@ impl<'a> RenderPipelineBuilder<'a> {
 
     pub fn add_index_buffer(mut self, buffer: BufferHandle) -> Self {
         self.index_buffers = Some(buffer);
+        self
+    }
+
+    pub fn depth_stencil<C: TextureContents>(
+        mut self,
+        write_enabled: bool,
+        compare: CompareFunction,
+        stencil: StencilState,
+        bias: DepthBiasState,
+    ) -> Self {
+        self.depth_stencil = Some(DepthStencilState {
+            format: C::FORMAT,
+            depth_write_enabled: write_enabled,
+            depth_compare: compare,
+            stencil,
+            bias,
+        });
+
         self
     }
 
@@ -216,7 +241,7 @@ impl<'a> RenderPipelineBuilder<'a> {
                     polygon_mode: self.polygon_mode,
                     conservative: false,
                 },
-                depth_stencil: None,
+                depth_stencil: self.depth_stencil,
                 multisample: MultisampleState::default(),
                 fragment: fragment_state,
                 multiview: None,
