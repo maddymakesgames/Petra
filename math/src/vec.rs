@@ -126,6 +126,12 @@ macro_rules! vector {
                 }
             }
 
+            pub const fn fill(val: f32) -> Self {
+                Self {
+                    $($field: val),*
+                }
+            }
+
             pub fn magnitude(&self) -> f32 {
                 self.magnitude_squared().sqrt()
             }
