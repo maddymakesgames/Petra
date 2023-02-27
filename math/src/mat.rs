@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Index, IndexMut, Mul},
+    ops::{Index, IndexMut, Mul, MulAssign},
 };
 
 use bytemuck::{Zeroable, Pod};
@@ -32,6 +32,13 @@ impl Mat4 {
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 1.0],
+    ]);
+
+    pub const OPENGL_TO_WGPU: Mat4 = Mat4([
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.5, 0.0],
+        [0.0, 0.0, 0.5, 1.0],
     ]);
 
     pub fn from_vector_rows(row1: Vec4, row2: Vec4, row3: Vec4, row4: Vec4) -> Mat4 {
@@ -120,7 +127,7 @@ impl Mat4 {
         let s = angle_radians.sin();
         let c = angle_radians.cos();
         Mat4([
-            [0.0, 0.0, 0.0, 0.0], 
+            [1.0, 0.0, 0.0, 0.0], 
             [0.0, c, -s, 0.0], 
             [0.0, s, c, 0.0], 
             [0.0, 0.0, 0.0, 1.0]
@@ -133,7 +140,7 @@ impl Mat4 {
         let c = angle_radians.cos();
         Mat4([
             [c, 0.0, -s, 0.0], 
-            [0.0, 0.0, 0.0, 0.0], 
+            [0.0, 1.0, 0.0, 0.0], 
             [s, 0.0, c, 0.0], 
             [0.0, 0.0, 0.0, 1.0]
         ])
@@ -146,7 +153,7 @@ impl Mat4 {
         Mat4([
             [c, -s, 0.0, 0.0], 
             [s, c, 0.0, 0.0], 
-            [0.0, 0.0, 0.0, 0.0], 
+            [0.0, 0.0, 1.0, 0.0], 
             [0.0, 0.0, 0.0, 1.0]
         ])
     }
@@ -159,7 +166,7 @@ impl Mat4 {
     }
 
     pub fn nth_column(&self, i: usize) -> Vec4 {
-        Vec4::new(self[i][0], self[i][1], self[i][2], self[i][3])
+        Vec4::new(self[0][i], self[1][i], self[2][i], self[3][i])
     }
 
     pub fn nth_row(&self, i: usize) -> Vec4 {
@@ -198,13 +205,12 @@ impl Mat4 {
         far_clip: f32,
     ) -> Mat4 {
         let fov = f32::tan(fov_radians * 0.5);
-        let fnn = far_clip - near_clip;
 
         Mat4([
-            [1.0 / (aspect_ratio * fov), 0.0, 0.0, 0.0],
-            [0.0, 1.0 / fov, 0.0, 0.0],
-            [0.0, 0.0, -(far_clip * near_clip / fnn), -1.0],
-            [0.0, -((2.0 * far_clip * near_clip) / fnn), 0.0, 0.0],
+            [fov / aspect_ratio, 0.0, 0.0, 0.0],
+            [0.0, fov, 0.0, 0.0],
+            [0.0, 0.0, (far_clip + near_clip) / (near_clip - far_clip), -1.0],
+            [0.0, 0.0, (2.0 * far_clip * near_clip) / (near_clip - far_clip), 0.0],
         ])
     }
 
@@ -218,7 +224,7 @@ impl Mat4 {
             [x_axis.x(), y_axis.x(), -z_axis.x(), 0.0],
             [x_axis.y(), y_axis.y(), -z_axis.y(), 0.0],
             [x_axis.z(), y_axis.z(), -z_axis.z(), 0.0],
-            [x_axis.dot(pos), y_axis.dot(pos), z_axis.dot(pos), 1.0],
+            [-x_axis.dot(pos), -y_axis.dot(pos), z_axis.dot(pos), 1.0],
         ])
     }
 
@@ -254,29 +260,35 @@ impl Mul for Mat4 {
         Mat4([
             [
                 self.nth_row(0).dot(rhs.nth_column(0)),
-                self.nth_row(1).dot(rhs.nth_column(0)),
-                self.nth_row(2).dot(rhs.nth_column(0)),
-                self.nth_row(3).dot(rhs.nth_column(0)),
-            ],
-            [
                 self.nth_row(0).dot(rhs.nth_column(1)),
-                self.nth_row(1).dot(rhs.nth_column(1)),
-                self.nth_row(2).dot(rhs.nth_column(1)),
-                self.nth_row(3).dot(rhs.nth_column(1)),
-            ],
-            [
                 self.nth_row(0).dot(rhs.nth_column(2)),
-                self.nth_row(1).dot(rhs.nth_column(2)),
-                self.nth_row(2).dot(rhs.nth_column(2)),
-                self.nth_row(3).dot(rhs.nth_column(2)),
+                self.nth_row(0).dot(rhs.nth_column(3)),
             ],
             [
-                self.nth_row(0).dot(rhs.nth_column(3)),
+                self.nth_row(1).dot(rhs.nth_column(0)),
+                self.nth_row(1).dot(rhs.nth_column(1)),
+                self.nth_row(1).dot(rhs.nth_column(2)),
                 self.nth_row(1).dot(rhs.nth_column(3)),
+            ],
+            [
+                self.nth_row(2).dot(rhs.nth_column(0)),
+                self.nth_row(2).dot(rhs.nth_column(1)),
+                self.nth_row(2).dot(rhs.nth_column(2)),
                 self.nth_row(2).dot(rhs.nth_column(3)),
+            ],
+            [
+                self.nth_row(3).dot(rhs.nth_column(0)),
+                self.nth_row(3).dot(rhs.nth_column(1)),
+                self.nth_row(3).dot(rhs.nth_column(2)),
                 self.nth_row(3).dot(rhs.nth_column(3)),
             ],
         ])
+    }
+}
+
+impl MulAssign<Mat4> for Mat4 {
+    fn mul_assign(&mut self, rhs: Mat4) {
+        *self = *self * rhs;
     }
 }
 
@@ -290,6 +302,12 @@ impl Mul<f32> for Mat4 {
             self.nth_row(2) * rhs,
             self.nth_row(3) * rhs,
         )
+    }
+}
+
+impl MulAssign<f32> for Mat4 {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
     }
 }
 
