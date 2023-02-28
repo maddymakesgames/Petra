@@ -11,6 +11,7 @@ use wgpu::{
     BufferDescriptor,
     BufferUsages,
     Device,
+    IndexFormat,
     Label,
     Queue,
     VertexBufferLayout,
@@ -135,6 +136,14 @@ impl Buffer {
 
     pub(crate) fn vertex_format(&self) -> Option<VertexBufferLayout<'static>> {
         self.vertex_format.clone()
+    }
+
+    pub(crate) fn index_format(&self) -> Option<IndexFormat> {
+        match self.element_size {
+            2 => Some(IndexFormat::Uint16),
+            4 => Some(IndexFormat::Uint32),
+            _ => None,
+        }
     }
 
     pub fn name(&self) -> Option<&str> {

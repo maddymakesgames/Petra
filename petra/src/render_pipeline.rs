@@ -43,7 +43,7 @@ pub struct RenderPipelineBuilder<'a> {
     culling: Option<Face>,
     polygon_mode: PolygonMode,
     vertex_buffers: Vec<BufferHandle>,
-    index_buffers: Option<BufferHandle>,
+    index_buffer: Option<BufferHandle>,
     instance_buffers: Vec<BufferHandle>,
     bind_groups: Vec<BindGroupHandle>,
     depth_stencil: Option<DepthStencilState>,
@@ -61,7 +61,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             culling: None,
             polygon_mode: PolygonMode::Fill,
             vertex_buffers: Vec::new(),
-            index_buffers: None,
+            index_buffer: None,
             instance_buffers: Vec::new(),
             bind_groups: Vec::new(),
             depth_stencil: None,
@@ -114,7 +114,7 @@ impl<'a> RenderPipelineBuilder<'a> {
     }
 
     pub fn add_index_buffer(mut self, buffer: BufferHandle) -> Self {
-        self.index_buffers = Some(buffer);
+        self.index_buffer = Some(buffer);
         self
     }
 
@@ -232,7 +232,14 @@ impl<'a> RenderPipelineBuilder<'a> {
                     topology: self
                         .topology
                         .expect("Topology not defined when building render pipeline"),
-                    strip_index_format: None,
+                    strip_index_format: if self.topology.unwrap().is_strip()
+                        && self.index_buffer.is_some()
+                    {
+                        let buffer = self.index_buffer.unwrap();
+                        self.manager.get_buffer(buffer).unwrap().index_format()
+                    } else {
+                        None
+                    },
                     front_face: self
                         .front_face
                         .expect("Front face not defined when building render pipeline"),
@@ -251,7 +258,7 @@ impl<'a> RenderPipelineBuilder<'a> {
             pipeline,
             vertex_buffers: self.vertex_buffers,
             instance_buffers: self.instance_buffers,
-            index_buffers: self.index_buffers,
+            index_buffers: self.index_buffer,
             bind_groups: self.bind_groups,
         };
 

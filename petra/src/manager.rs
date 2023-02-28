@@ -10,7 +10,6 @@ use wgpu::{
     DeviceDescriptor,
     Dx12Compiler,
     Features,
-    IndexFormat,
     Instance,
     InstanceDescriptor,
     Label,
@@ -452,11 +451,9 @@ impl RenderManager {
                 let size = idx_buffer.len();
                 pass.set_index_buffer(
                     idx_buffer.inner().slice(..),
-                    match idx_buffer.inner().size() / size {
-                        2 => IndexFormat::Uint16,
-                        4 => IndexFormat::Uint32,
-                        _ => panic!("Type of unsupported size used in an index buffer"),
-                    },
+                    idx_buffer
+                        .index_format()
+                        .expect("Invalid type used for an Index Buffer, expected u16 or u32"),
                 );
 
                 let mut vertex_buffer_size = None;
