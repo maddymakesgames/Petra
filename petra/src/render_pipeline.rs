@@ -47,6 +47,8 @@ pub struct RenderPipelineBuilder<'a> {
     instance_buffers: Vec<BufferHandle>,
     bind_groups: Vec<BindGroupHandle>,
     depth_stencil: Option<DepthStencilState>,
+    unclipped_depth: bool,
+    conservative: bool,
 }
 
 impl<'a> RenderPipelineBuilder<'a> {
@@ -65,6 +67,8 @@ impl<'a> RenderPipelineBuilder<'a> {
             instance_buffers: Vec::new(),
             bind_groups: Vec::new(),
             depth_stencil: None,
+            unclipped_depth: false,
+            conservative: false,
         }
     }
 
@@ -133,6 +137,16 @@ impl<'a> RenderPipelineBuilder<'a> {
             bias,
         });
 
+        self
+    }
+
+    pub fn unclipped_depth(mut self) -> Self {
+        self.unclipped_depth = true;
+        self
+    }
+
+    pub fn conservative_rasterization(mut self) -> Self {
+        self.conservative = true;
         self
     }
 
@@ -244,9 +258,9 @@ impl<'a> RenderPipelineBuilder<'a> {
                         .front_face
                         .expect("Front face not defined when building render pipeline"),
                     cull_mode: self.culling,
-                    unclipped_depth: false,
+                    unclipped_depth: self.unclipped_depth,
                     polygon_mode: self.polygon_mode,
-                    conservative: false,
+                    conservative: self.conservative,
                 },
                 depth_stencil: self.depth_stencil,
                 multisample: MultisampleState::default(),
